@@ -20,6 +20,12 @@ const auth = (req, res, next) => {
     } catch (err) { res.status(401).send("Token invalide"); }
 };
 
+const validateEmail = (email) => {
+    return String(email)
+      .toLowerCase()
+      .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+};
+
 app.post('/api/register', async (req, res) => {
     try {
         const { email, password, role } = req.body;
@@ -62,10 +68,12 @@ app.post('/api/admin/scan', auth, async (req, res) => {
     res.json({ success: true, newBalance: user.balance, email: user.email });
 });
 
+// 5. Liste des utilisateurs (Tous)
 app.get('/api/admin/users', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
-        const users = await User.find({ role: 'user' }).select('-password').sort({ _id: -1 });
+        // On enlève le filtre { role: 'user' } pour voir tout le monde
+        const users = await User.find().select('-password').sort({ _id: -1 });
         res.json(users);
     } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -82,32 +90,42 @@ app.delete('/api/admin/users/:id', auth, async (req, res) => {
 app.post('/api/admin/users', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
-        const { email, password } = req.body;
+        // On récupère aussi le 'role'
+        const { email, password, role } = req.body; 
+        
+        // Validation simple
+        if (!email || !email.includes('@')) return res.status(400).json({ error: "Email invalide" });
+        
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await User.create({ email, password: hashedPassword, role: 'user' });
-        res.json({ success: true, user: { email: newUser.email, _id: newUser._id, balance: 24 } });
+        
+        // On force le role à 'user' si rien n'est envoyé, sinon on prend la valeur (admin ou user)
+        const newUser = await User.create({ 
+            email, 
+            password: hashedPassword, 
+            role: role || 'user', 
+            balance: 24 
+        });
+
+        res.json({ success: true, user: { email: newUser.email, role: newUser.role } });
     } catch (err) { res.status(400).json({ error: "Email déjà existant ou invalide" }); }
 });
 
-// Fonction utilitaire pour valider l'email
-const validateEmail = (email) => {
-    return String(email)
-      .toLowerCase()
-      .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
-};
-
-// 8. ADMIN : Modifier un utilisateur (Sécurisé)
+// 8. ADMIN : Modifier un utilisateur (Avec gestion du Rôle)
 app.put('/api/admin/users/:id', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     
     try {
-        const { email, balance, password } = req.body;
+        const { email, balance, password, role } = req.body;
         const updateData = { balance };
 
-        // Validation Email stricte
+        // Mise à jour du rôle si fourni
+        if (role) {
+            updateData.role = role;
+        }
+
         if (email !== undefined) {
             if (!email || email.trim() === "" || !validateEmail(email)) {
-                return res.status(400).json({ error: "Email invalide ou vide interdit." });
+                return res.status(400).json({ error: "Email invalide." });
             }
             updateData.email = email;
         }
@@ -119,7 +137,7 @@ app.put('/api/admin/users/:id', auth, async (req, res) => {
         await User.findByIdAndUpdate(req.params.id, updateData);
         res.json({ success: true, message: "Utilisateur mis à jour" });
     } catch (err) {
-        res.status(400).json({ error: "Cet email est déjà utilisé." });
+        res.status(400).json({ error: "Erreur lors de la mise à jour." });
     }
 });
 

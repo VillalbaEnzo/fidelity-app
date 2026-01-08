@@ -2,14 +2,15 @@ import { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle, Shield } from 'lucide-react';
 
 export default function AdminScanner() {
   const [activeTab, setActiveTab] = useState('scan');
   const [users, setUsers] = useState([]);
   
   const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({ email: '', password: '', balance: 24 });
+  // Ajout du champ 'role' par défaut à 'user'
+  const [formData, setFormData] = useState({ email: '', password: '', balance: 24, role: 'user' });
   const [showModal, setShowModal] = useState(false);
   
   const [modalSuccess, setModalSuccess] = useState('');
@@ -67,8 +68,13 @@ export default function AdminScanner() {
     setEditingUser(user);
     setModalSuccess(''); 
     setModalError('');
-    if (user) setFormData({ email: user.email, password: '', balance: user.balance });
-    else setFormData({ email: '', password: '', balance: 24 });
+    if (user) {
+        // Mode Édition : on charge les données existantes
+        setFormData({ email: user.email, password: '', balance: user.balance, role: user.role || 'user' });
+    } else {
+        // Mode Création : valeurs par défaut
+        setFormData({ email: '', password: '', balance: 24, role: 'user' });
+    }
     setShowModal(true);
   };
 
@@ -77,31 +83,24 @@ export default function AdminScanner() {
       setModalError('');
       setModalSuccess('');
 
-      // --- VALIDATION FRONTEND ---
-      // On empêche la sauvegarde si l'email est vide ou invalide
       if (!formData.email || !formData.email.includes('@')) {
         setModalError("Veuillez saisir une adresse email valide.");
         return; 
       }
       
-      if (!formData.balance && formData.balance !== 0) {
-          setModalError("Le solde ne peut pas être vide.");
-          return;
-      }
-
       const token = localStorage.getItem('token');
       try {
           if (editingUser) {
               await axios.put(`${import.meta.env.VITE_API_URL}/api/admin/users/${editingUser._id}`, formData, {
                   headers: { Authorization: `Bearer ${token}` }
               });
-              setModalSuccess("Client mis à jour !");
+              setModalSuccess("Utilisateur mis à jour !");
           } else {
               await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/users`, formData, {
                   headers: { Authorization: `Bearer ${token}` }
               });
-              setModalSuccess("Client créé avec succès !");
-              setFormData({ email: '', password: '', balance: 24 });
+              setModalSuccess("Utilisateur créé avec succès !");
+              setFormData({ email: '', password: '', balance: 24, role: 'user' });
           }
           fetchUsers();
           setTimeout(() => { setShowModal(false); setModalSuccess(''); }, 1500);
@@ -111,7 +110,7 @@ export default function AdminScanner() {
   };
 
   const handleDelete = async (id) => {
-      if(!confirm("Supprimer ce client ?")) return;
+      if(!confirm("Supprimer cet utilisateur ?")) return;
       const token = localStorage.getItem('token');
       try {
           await axios.delete(`${import.meta.env.VITE_API_URL}/api/admin/users/${id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -125,8 +124,8 @@ export default function AdminScanner() {
     <div className="flex flex-col h-screen bg-neutral-50 text-neutral-900 font-sans">
       <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-10">
         <div>
-          <h1 className="text-lg font-bold text-neutral-900">Pacheco Admin</h1>
-          <p className="text-neutral-400 text-[10px] uppercase tracking-widest">{activeTab === 'scan' ? 'Scanner' : 'Gestion Clients'}</p>
+          <h1 className="text-lg font-bold text-neutral-900">Atelier Admin</h1>
+          <p className="text-neutral-400 text-[10px] uppercase tracking-widest">{activeTab === 'scan' ? 'Scanner' : 'Gestion Utilisateurs'}</p>
         </div>
         <button onClick={() => { localStorage.clear(); navigate('/'); }} className="p-2 bg-neutral-100 rounded-full text-neutral-500"><LogOut size={18} /></button>
       </header>
@@ -153,14 +152,18 @@ export default function AdminScanner() {
         {activeTab === 'list' && (
             <div className="h-full overflow-y-auto p-4 animate-fade-in pb-24">
                 <button onClick={() => openModal()} className="w-full bg-neutral-900 text-white p-4 rounded-xl font-medium mb-6 flex justify-center items-center gap-2 shadow-lg hover:scale-[1.02] transition-transform">
-                    <Plus size={20} /> Ajouter un client
+                    <Plus size={20} /> Ajouter un utilisateur
                 </button>
 
                 <div className="space-y-3">
                     {users.map(u => (
                         <div key={u._id} className="bg-white p-4 rounded-xl shadow-sm border border-neutral-100 flex justify-between items-center">
                             <div>
-                                <p className="font-semibold text-sm">{u.email}</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-semibold text-sm">{u.email}</p>
+                                    {/* Petit badge si c'est un admin */}
+                                    {u.role === 'admin' && <span className="bg-black text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">Coiffeur</span>}
+                                </div>
                                 <p className="text-xs text-neutral-400">Solde: <span className="text-amber-500 font-bold">{u.balance}</span></p>
                             </div>
                             <div className="flex gap-2">
@@ -174,48 +177,48 @@ export default function AdminScanner() {
         )}
       </main>
 
-      {/* MODAL AVEC VALIDATION ET STYLE UNIFIÉ */}
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-                <h3 className="text-lg font-bold mb-4">{editingUser ? 'Modifier le client' : 'Nouveau client'}</h3>
+                <h3 className="text-lg font-bold mb-4">{editingUser ? 'Modifier' : 'Nouveau'}</h3>
                 
-                {/* On ajoute noValidate pour gérer nous même les erreurs */}
                 <form onSubmit={handleSave} noValidate className="space-y-4">
-                    
-                    {/* POPUP SUCCES */}
-                    {modalSuccess && (
-                        <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2 animate-fade-in">
-                            <CheckCircle size={18} className="shrink-0" /> <span>{modalSuccess}</span>
+                    {modalSuccess && <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2"><CheckCircle size={18} /><span>{modalSuccess}</span></div>}
+                    {modalError && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{modalError}</span></div>}
+
+                    {/* STATUT (RÔLE) */}
+                    <div>
+                        <label className="text-xs text-neutral-400 uppercase font-bold">Statut du compte</label>
+                        <div className="relative mt-1">
+                            <select 
+                                value={formData.role} 
+                                onChange={e => setFormData({...formData, role: e.target.value})}
+                                className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 appearance-none focus:border-neutral-900 outline-none"
+                            >
+                                <option value="user">Client (Fidélité)</option>
+                                <option value="admin">Coiffeur (Accès Scanner)</option>
+                            </select>
+                            <Shield className="absolute right-3 top-3 text-neutral-400 pointer-events-none" size={16} />
                         </div>
-                    )}
-                    
-                    {/* POPUP ERREUR (STYLE LOGIN) */}
-                    {modalError && (
-                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-start gap-2 animate-shake">
-                            <AlertCircle size={18} className="shrink-0 mt-0.5" /> <span>{modalError}</span>
-                        </div>
-                    )}
+                    </div>
 
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Email</label>
-                        <input 
-                            className={`w-full p-3 rounded-lg bg-neutral-50 border mt-1 focus:outline-none transition-all
-                                ${modalError && !formData.email ? 'border-red-300 focus:border-red-500' : 'border-neutral-200 focus:border-neutral-900'}`}
-                            type="email" 
-                            value={formData.email} 
-                            onChange={e => { setFormData({...formData, email: e.target.value}); setModalError(''); }} 
-                            required 
-                        />
+                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="email" value={formData.email} onChange={e => { setFormData({...formData, email: e.target.value}); setModalError(''); }} required />
                     </div>
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe {editingUser && '(vide = inchangé)'}</label>
-                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required={!editingUser} />
+                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
                     </div>
-                    <div>
-                        <label className="text-xs text-neutral-400 uppercase font-bold">Solde de coupes</label>
-                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 font-mono text-lg focus:border-neutral-900 outline-none" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} required />
-                    </div>
+                    
+                    {/* Le solde ne s'affiche que si ce n'est pas un admin (optionnel, mais logique) */}
+                    {formData.role === 'user' && (
+                        <div>
+                            <label className="text-xs text-neutral-400 uppercase font-bold">Solde de coupes</label>
+                            <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 font-mono text-lg focus:border-neutral-900 outline-none" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} />
+                        </div>
+                    )}
                     
                     <div className="flex gap-3 pt-2">
                         <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium hover:bg-neutral-50">Annuler</button>
