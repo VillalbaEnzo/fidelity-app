@@ -1,122 +1,233 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import axios from 'axios';
-import QRCode from 'react-qr-code';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, RefreshCw, Settings, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle, Shield, Scissors } from 'lucide-react';
 
-export default function UserDashboard() {
-  const [data, setData] = useState({ balance: 0, qrToken: '', email: '' });
-  const [showSettings, setShowSettings] = useState(false);
-  const [settingsForm, setSettingsForm] = useState({ email: '', password: '' });
-  const [successMsg, setSuccessMsg] = useState(''); 
-  const [errorMsg, setErrorMsg] = useState('');     
+export default function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState('scan');
+  const [users, setUsers] = useState([]);
+  
+  const [editingUser, setEditingUser] = useState(null);
+  const [formData, setFormData] = useState({ email: '', password: '', balance: 24, role: 'user' });
+  const [showModal, setShowModal] = useState(false);
+  
+  const [modalSuccess, setModalSuccess] = useState('');
+  const [modalError, setModalError] = useState('');
+
+  const [scanResult, setScanResult] = useState(null); 
+  const [data, setData] = useState(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const navigate = useNavigate();
+  const scannerRef = useRef(null);
 
-  // 1. Chargement initial (QR Code + Solde + Email) - UNE SEULE FOIS
+  // --- LOGIQUE SCANNER ---
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) { navigate('/'); return; }
-
-    axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { headers: { Authorization: `Bearer ${token}` } })
-    .then(res => setData(res.data))
-    .catch(() => navigate('/'));
-  }, []); // [] = s'exécute une seule fois
-
-  // 2. Polling uniquement sur le solde (toutes les 3s)
-  useEffect(() => {
-    const interval = setInterval(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        // Appel à la route légère
-        axios.get(import.meta.env.VITE_API_URL + '/api/user/balance', { headers: { Authorization: `Bearer ${token}` } })
-        .then(res => {
-            // Mise à jour uniquement du solde, on ne touche pas au qrToken
-            setData(prev => {
-                if (prev.balance !== res.data.balance) {
-                    return { ...prev, balance: res.data.balance };
-                }
-                return prev;
+    // Si la caméra ne doit pas être active
+    if (activeTab !== 'scan' || !isCameraActive) {
+        if (scannerRef.current) {
+            // On tente d'arrêter proprement
+            scannerRef.current.stop().then(() => {
+                scannerRef.current.clear();
+            }).catch(() => {
+                // Erreur ignorée lors de l'arrêt
+            }).finally(() => {
+                 scannerRef.current = null;
             });
-        })
-        .catch(err => console.log("Polling error", err));
-    }, 3000);
+        }
+        return;
+    }
 
-    return () => clearInterval(interval);
-  }, []);
+    // Si on arrive ici, c'est qu'on doit lancer la caméra
+    // On attend un tout petit peu que le DIV soit bien rendu par React
+    const timeoutId = setTimeout(() => {
+        const html5QrCode = new Html5Qrcode("reader");
+        scannerRef.current = html5QrCode;
 
-  const handleSettingsSave = async (e) => {
-      e.preventDefault();
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => handleScan(decodedText, html5QrCode), () => {}
+        ).catch((err) => {
+            setIsCameraActive(false);
+            alert("Erreur caméra : " + err);
+        });
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [isCameraActive, activeTab]);
+
+  const handleScan = async (qrData, scannerInstance) => {
+    scannerInstance.pause();
+    try {
       const token = localStorage.getItem('token');
-      setErrorMsg(''); setSuccessMsg('');
-
-      if (!settingsForm.email || !settingsForm.email.includes('@')) {
-          setErrorMsg("Veuillez saisir une adresse email valide.");
-          return;
-      }
-
-      try {
-          await axios.put(import.meta.env.VITE_API_URL + '/api/user/me', settingsForm, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
-          setSuccessMsg("Profil mis à jour avec succès !");
-          setSettingsForm({ ...settingsForm, password: '' });
-          
-          // Petit refresh des données globales (au cas où l'email change)
-          const res = await axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { headers: { Authorization: `Bearer ${token}` } });
-          setData(prev => ({...prev, email: res.data.email}));
-
-          setTimeout(() => { setSuccessMsg(''); setShowSettings(false); }, 2000);
-      } catch (err) { setErrorMsg(err.response?.data?.error || "Erreur"); }
+      const res = await axios.post(import.meta.env.VITE_API_URL + '/api/admin/scan', 
+        { qrData }, { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setData(res.data);
+      setScanResult('success');
+    } catch (err) {
+      setData(err.response?.data || { error: "Erreur inconnue" });
+      setScanResult('error');
+    }
+    
+    // Après 3.5s, on reset et on relance
+    setTimeout(() => { 
+        setScanResult(null); 
+        setData(null); 
+        try{ scannerInstance.resume(); } catch(e){} 
+    }, 3500);
   };
 
+  // --- LOGIQUE CLIENTS (inchangée) ---
+  const fetchUsers = async () => {
+      const token = localStorage.getItem('token');
+      try {
+          const res = await axios.get(import.meta.env.VITE_API_URL + '/api/admin/users', { headers: { Authorization: `Bearer ${token}` } });
+          setUsers(res.data);
+      } catch (err) { console.error(err); }
+  };
+
+  const openModal = (user = null) => {
+    setEditingUser(user);
+    setModalSuccess(''); setModalError('');
+    if (user) setFormData({ email: user.email, password: '', balance: user.balance, role: user.role || 'user' });
+    else setFormData({ email: '', password: '', balance: 24, role: 'user' });
+    setShowModal(true);
+  };
+
+  const handleSave = async (e) => {
+      e.preventDefault();
+      setModalError(''); setModalSuccess('');
+
+      if (!formData.email || !formData.email.includes('@')) {
+        setModalError("Veuillez saisir une adresse email valide.");
+        return; 
+      }
+      
+      const token = localStorage.getItem('token');
+      try {
+          if (editingUser) {
+              await axios.put(`${import.meta.env.VITE_API_URL}/api/admin/users/${editingUser._id}`, formData, { headers: { Authorization: `Bearer ${token}` } });
+              setModalSuccess("Utilisateur mis à jour !");
+          } else {
+              await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/users`, formData, { headers: { Authorization: `Bearer ${token}` } });
+              setModalSuccess("Utilisateur créé avec succès !");
+              setFormData({ email: '', password: '', balance: 24, role: 'user' });
+          }
+          fetchUsers();
+          setTimeout(() => { setShowModal(false); setModalSuccess(''); }, 1500);
+      } catch (err) { setModalError(err.response?.data?.error || "Erreur"); }
+  };
+
+  const handleDelete = async (id) => {
+      if(!confirm("Supprimer cet utilisateur ?")) return;
+      const token = localStorage.getItem('token');
+      try {
+          await axios.delete(`${import.meta.env.VITE_API_URL}/api/admin/users/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+          fetchUsers();
+      } catch (err) { alert("Erreur suppression"); }
+  };
+
+  useEffect(() => { if(activeTab === 'list') fetchUsers(); }, [activeTab]);
+
   return (
-    <div className="min-h-[100dvh] bg-neutral-100 flex flex-col items-center pt-8 px-4 pb-20 font-sans">
-      <div className="w-full max-w-sm flex justify-between items-center mb-8">
-        <h1 className="text-xl font-bold text-neutral-900">Mon Espace</h1>
-        <div className="flex gap-4">
-            <button onClick={() => { setSettingsForm({email: data.email, password: ''}); setShowSettings(true); }} className="text-neutral-500 hover:text-neutral-900"><Settings size={20} /></button>
-            <button onClick={() => { localStorage.clear(); navigate('/'); }} className="text-neutral-500 hover:text-red-600"><LogOut size={20} /></button>
+    <div className="flex flex-col h-[100dvh] bg-neutral-50 text-neutral-900 font-sans overflow-hidden">
+      
+      <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20 shrink-0">
+        <div>
+          <h1 className="text-lg font-bold text-neutral-900">Atelier Admin</h1>
+          <p className="text-neutral-400 text-[10px] uppercase tracking-widest">{activeTab === 'scan' ? 'Scanner' : 'Gestion Utilisateurs'}</p>
         </div>
-      </div>
+        <button onClick={() => { localStorage.clear(); navigate('/'); }} className="p-2 bg-neutral-100 rounded-full text-neutral-500"><LogOut size={18} /></button>
+      </header>
 
-      <div className="w-full max-w-sm bg-gradient-to-br from-neutral-800 to-black text-white p-6 rounded-2xl shadow-xl mb-8 relative overflow-hidden animate-fade-in">
-        <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl"></div>
-        <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase mb-1">Solde Restant</p>
-        <div className="flex items-baseline gap-2">
-          {/* Transition douce quand le chiffre change */}
-          <span className="text-5xl font-bold text-amber-400 transition-all duration-500">{data.balance}</span>
-          <span className="text-neutral-400">/ 24 coupes</span>
-        </div>
-        <div className="mt-6 flex justify-between items-end">
-            <div><p className="text-xs text-neutral-500">Membre privilège</p></div>
-            <div className="w-16 h-1 bg-neutral-700 rounded-full overflow-hidden"><div className="h-full bg-amber-400 transition-all duration-1000" style={{ width: `${(data.balance / 24) * 100}%` }}></div></div>
-        </div>
-      </div>
+      <main className="flex-1 overflow-hidden relative">
+        
+        {/* --- ONGLET SCAN --- */}
+        {activeTab === 'scan' && (
+            <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in">
+                {!isCameraActive ? (
+                    <div className="text-center">
+                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md"><Camera size={32} className="text-neutral-300" /></div>
+                        <button onClick={() => setIsCameraActive(true)} className="px-6 py-3 bg-neutral-900 text-white rounded-xl shadow-lg font-medium flex items-center gap-2 mx-auto"><Camera size={18} /> Activer</button>
+                    </div>
+                ) : (
+                    <div className="w-full max-w-sm relative flex flex-col items-center">
+                         <div className="relative w-full aspect-square bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+                            {/* C'est ICI le changement : si on arrête, cette div n'existe plus */}
+                            <div id="reader" className="w-full h-full absolute inset-0 [&>video]:object-cover [&>video]:w-full [&>video]:h-full"></div>
+                         </div>
+                         <button onClick={() => setIsCameraActive(false)} className="mt-8 px-6 py-2 bg-white border border-neutral-200 rounded-full text-sm font-medium shadow-sm z-30">Arrêter la caméra</button>
+                    </div>
+                )}
+            </div>
+        )}
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm w-full max-w-sm flex flex-col items-center text-center animate-fade-in" style={{animationDelay: '0.1s'}}>
-        <div className="bg-white p-2 rounded-xl border-2 border-dashed border-neutral-200 mb-4">
-          {/* Le QR Code ne clignote plus car qrToken n'est plus mis à jour par le polling */}
-          {data.qrToken ? <QRCode value={data.qrToken} size={180} bgColor="#FFFFFF" fgColor="#171717" level="H" /> : <div className="w-[180px] h-[180px] flex items-center justify-center text-neutral-300"><RefreshCw className="animate-spin" /></div>}
-        </div>
-        <h3 className="font-semibold text-neutral-900 mb-1">Votre Pass Coupe</h3>
-        <p className="text-sm text-neutral-500 max-w-[200px]">Présentez ce code à votre coiffeur.</p>
-      </div>
+        {/* --- ONGLET LISTE --- */}
+        {activeTab === 'list' && (
+            <div className="h-full overflow-y-auto p-4 animate-fade-in">
+                <button onClick={() => openModal()} className="w-full bg-neutral-900 text-white p-4 rounded-xl font-medium mb-6 flex justify-center items-center gap-2 shadow-lg">
+                    <Plus size={20} /> Ajouter un utilisateur
+                </button>
 
-      {showSettings && (
+                <div className="space-y-3 pb-32">
+                    {users.map(u => (
+                        <div key={u._id} className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${u.role === 'admin' ? 'bg-neutral-100 border-neutral-200' : 'bg-white border-neutral-100'}`}>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-semibold text-sm text-neutral-800">{u.email}</p>
+                                    {u.role === 'admin' && <span className="bg-neutral-900 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex items-center gap-1"><Scissors size={8} /> Coiffeur</span>}
+                                </div>
+                                {u.role === 'user' ? <p className="text-xs text-neutral-400">Solde: <span className="text-amber-500 font-bold">{u.balance}</span></p> : <p className="text-[10px] text-neutral-400 italic mt-0.5">Accès Gestionnaire</p>}
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => openModal(u)} className="p-2 bg-white border border-neutral-100 rounded-lg text-neutral-400 hover:text-blue-600"><Pencil size={16} /></button>
+                                <button onClick={() => handleDelete(u._id)} className="p-2 bg-white border border-neutral-100 rounded-lg text-neutral-400 hover:text-red-600"><Trash2 size={16} /></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+      </main>
+
+      {/* --- MODAL (reste identique) --- */}
+      {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl relative">
-                <h3 className="text-lg font-bold mb-4">Modifier mon profil</h3>
-                <form onSubmit={handleSettingsSave} noValidate className="space-y-4">
-                    {successMsg && <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2"><CheckCircle size={18} /><span>{successMsg}</span></div>}
-                    {errorMsg && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{errorMsg}</span></div>}
-                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Email</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="email" value={settingsForm.email} onChange={e => { setSettingsForm({...settingsForm, email: e.target.value}); setErrorMsg(''); }} /></div>
-                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Nouveau mot de passe</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="password" placeholder="••••••" value={settingsForm.password} onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} /></div>
-                    <div className="flex gap-3 pt-2"><button type="button" onClick={() => { setShowSettings(false); setSuccessMsg(''); setErrorMsg(''); }} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button><button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Valider</button></div>
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+                <h3 className="text-lg font-bold mb-4">{editingUser ? 'Modifier' : 'Nouveau'}</h3>
+                <form onSubmit={handleSave} noValidate className="space-y-4">
+                    {modalSuccess && <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2"><CheckCircle size={18} /><span>{modalSuccess}</span></div>}
+                    {modalError && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{modalError}</span></div>}
+
+                    <div>
+                        <label className="text-xs text-neutral-400 uppercase font-bold">Statut</label>
+                        <div className="relative mt-1">
+                            <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 appearance-none outline-none font-medium text-sm">
+                                <option value="user">Client</option>
+                                <option value="admin">Coiffeur</option>
+                            </select>
+                            <Shield className="absolute right-3 top-3 text-neutral-400 pointer-events-none" size={16} />
+                        </div>
+                    </div>
+                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Email</label><input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 outline-none" type="email" value={formData.email} onChange={e => { setFormData({...formData, email: e.target.value}); setModalError(''); }} required /></div>
+                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe {editingUser && '(vide = inchangé)'}</label><input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 outline-none" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
+                    {formData.role === 'user' && (<div><label className="text-xs text-neutral-400 uppercase font-bold">Solde</label><input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 font-mono text-lg outline-none" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} /></div>)}
+                    <div className="flex gap-3 pt-2"><button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button><button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Sauvegarder</button></div>
                 </form>
             </div>
         </div>
       )}
+
+      {/* --- OVERLAY RESULTAT --- */}
+      <div className={`fixed inset-x-0 bottom-0 p-6 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transform transition-transform duration-300 ease-out z-50 ${scanResult ? 'translate-y-0' : 'translate-y-full'}`}>
+        {scanResult === 'success' && <div className="text-center"><div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-green-600"><Check size={24} /></div><h2 className="text-lg font-bold mb-1">Validé !</h2><p className="text-sm text-neutral-500">Nouveau solde : <b>{data?.newBalance}/24</b></p></div>}
+        {scanResult === 'error' && <div className="text-center"><div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-red-600"><X size={24} /></div><h2 className="text-lg font-bold mb-1">Erreur</h2><p className="text-sm text-neutral-500">{data?.error}</p></div>}
+      </div>
+
+      <nav className="bg-white border-t border-neutral-100 flex justify-around p-2 pb-safe z-30 shrink-0">
+          <button onClick={() => setActiveTab('scan')} className={`flex flex-col items-center p-2 rounded-lg w-full transition-colors ${activeTab === 'scan' ? 'text-neutral-900' : 'text-neutral-300'}`}><Camera size={24} /><span className="text-[10px] font-medium mt-1">Scanner</span></button>
+          <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center p-2 rounded-lg w-full transition-colors ${activeTab === 'list' ? 'text-neutral-900' : 'text-neutral-300'}`}><Users size={24} /><span className="text-[10px] font-medium mt-1">Clients</span></button>
+      </nav>
     </div>
   );
 }

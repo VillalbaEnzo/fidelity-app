@@ -29,7 +29,7 @@ export default function UserDashboard() {
     const token = localStorage.getItem('token');
     if(!token && !silent) { navigate('/'); return; }
 
-    axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { headers: { Authorization: `Bearer ${token}` } })
+    axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { he²ers: { Authorization: `Bearer ${token}` } })
     .then(res => {
         // On met à jour les données seulement si elles ont changé pour éviter les clignotements
         setData(prev => {
