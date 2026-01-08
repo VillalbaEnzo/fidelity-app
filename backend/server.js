@@ -62,6 +62,33 @@ app.post('/api/admin/scan', auth, async (req, res) => {
     res.json({ success: true, newBalance: user.balance, email: user.email });
 });
 
+app.get('/api/admin/users', auth, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
+    try {
+        const users = await User.find({ role: 'user' }).select('-password').sort({ _id: -1 });
+        res.json(users);
+    } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+// 6. Supprimer un client
+app.delete('/api/admin/users/:id', auth, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
+    try {
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: "Client supprimé" });
+    } catch (err) { res.status(400).json({ error: "Erreur suppression" }); }
+});
+
+app.post('/api/admin/users', auth, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
+    try {
+        const { email, password } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await User.create({ email, password: hashedPassword, role: 'user' });
+        res.json({ success: true, user: { email: newUser.email, _id: newUser._id, balance: 24 } });
+    } catch (err) { res.status(400).json({ error: "Email déjà existant ou invalide" }); }
+});
+
 mongoose.connect(process.env.MONGO_URI)
     .then(() => app.listen(process.env.PORT, () => console.log(`Serveur prêt sur port ${process.env.PORT}`)))
     .catch(err => console.error(err));
