@@ -45,7 +45,7 @@ export default function Login() {
         <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-neutral-100">
             <Scissors size={32} strokeWidth={1.5} className="text-neutral-800" />
         </div>
-        <h1 className="text-3xl font-light tracking-tight text-neutral-900 mb-2">L'Atelier</h1>
+        <h1 className="text-3xl font-light tracking-tight text-neutral-900 mb-2">Pacheco</h1>
         <p className="text-sm text-neutral-400 uppercase tracking-widest font-medium">Espace Fidélité</p>
       </div>
 
@@ -105,7 +105,7 @@ export default function Login() {
       </div>
 
       <div className="mt-8 text-center">
-         <p className="text-xs text-neutral-400">© 2024 Salon Élégance</p>
+         <p className="text-xs text-neutral-400">© 2026 Pacheco • Coiffeur & barbier</p>
       </div>
 
     </div>

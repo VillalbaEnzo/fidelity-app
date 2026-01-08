@@ -125,7 +125,7 @@ export default function AdminScanner() {
     <div className="flex flex-col h-screen bg-neutral-50 text-neutral-900 font-sans">
       <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-10">
         <div>
-          <h1 className="text-lg font-bold text-neutral-900">Atelier Admin</h1>
+          <h1 className="text-lg font-bold text-neutral-900">Pacheco Admin</h1>
           <p className="text-neutral-400 text-[10px] uppercase tracking-widest">{activeTab === 'scan' ? 'Scanner' : 'Gestion Clients'}</p>
         </div>
         <button onClick={() => { localStorage.clear(); navigate('/'); }} className="p-2 bg-neutral-100 rounded-full text-neutral-500"><LogOut size={18} /></button>
