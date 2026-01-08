@@ -12,13 +12,36 @@ export default function UserDashboard() {
   const [errorMsg, setErrorMsg] = useState('');     
   const navigate = useNavigate();
 
-  useEffect(() => { fetchData(); }, []);
+  // --- POLLING : Mise à jour auto ---
+  useEffect(() => {
+    // 1. Appel immédiat
+    fetchData();
 
-  const fetchData = () => {
+    // 2. Appel répété toutes les 3 secondes
+    const interval = setInterval(() => {
+        fetchData(true); // true = mode silencieux (ne redirige pas si erreur pour éviter les sauts)
+    }, 3000);
+
+    return () => clearInterval(interval); // Nettoyage quand on quitte la page
+  }, []);
+
+  const fetchData = (silent = false) => {
     const token = localStorage.getItem('token');
+    if(!token && !silent) { navigate('/'); return; }
+
     axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { headers: { Authorization: `Bearer ${token}` } })
-    .then(res => setData(res.data))
-    .catch(() => navigate('/'));
+    .then(res => {
+        // On met à jour les données seulement si elles ont changé pour éviter les clignotements
+        setData(prev => {
+            if (JSON.stringify(prev) !== JSON.stringify(res.data)) {
+                return res.data;
+            }
+            return prev;
+        });
+    })
+    .catch(() => {
+        if (!silent) navigate('/');
+    });
   };
 
   const handleSettingsSave = async (e) => {
@@ -27,8 +50,6 @@ export default function UserDashboard() {
       setErrorMsg('');
       setSuccessMsg('');
 
-      // --- VALIDATION FRONTEND ---
-      // Vérification stricte avant d'envoyer
       if (!settingsForm.email || !settingsForm.email.includes('@')) {
           setErrorMsg("Veuillez saisir une adresse email valide.");
           return;
@@ -38,32 +59,20 @@ export default function UserDashboard() {
           await axios.put(import.meta.env.VITE_API_URL + '/api/user/me', settingsForm, {
               headers: { Authorization: `Bearer ${token}` }
           });
-          
           setSuccessMsg("Profil mis à jour avec succès !");
           setSettingsForm({ ...settingsForm, password: '' });
           fetchData();
-          
-          setTimeout(() => {
-              setSuccessMsg('');
-              setShowSettings(false);
-          }, 2000);
-
-      } catch (err) {
-          setErrorMsg(err.response?.data?.error || "Erreur lors de la mise à jour");
-      }
+          setTimeout(() => { setSuccessMsg(''); setShowSettings(false); }, 2000);
+      } catch (err) { setErrorMsg(err.response?.data?.error || "Erreur"); }
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex flex-col items-center pt-8 px-4 pb-20">
+    <div className="min-h-[100dvh] bg-neutral-100 flex flex-col items-center pt-8 px-4 pb-20 font-sans">
       <div className="w-full max-w-sm flex justify-between items-center mb-8">
         <h1 className="text-xl font-bold text-neutral-900">Mon Espace</h1>
         <div className="flex gap-4">
-            <button onClick={() => { setSettingsForm({email: data.email, password: ''}); setShowSettings(true); }} className="text-neutral-500 hover:text-neutral-900 transition-colors">
-                <Settings size={20} />
-            </button>
-            <button onClick={() => { localStorage.clear(); navigate('/'); }} className="text-neutral-500 hover:text-red-600 transition-colors">
-                <LogOut size={20} />
-            </button>
+            <button onClick={() => { setSettingsForm({email: data.email, password: ''}); setShowSettings(true); }} className="text-neutral-500 hover:text-neutral-900"><Settings size={20} /></button>
+            <button onClick={() => { localStorage.clear(); navigate('/'); }} className="text-neutral-500 hover:text-red-600"><LogOut size={20} /></button>
         </div>
       </div>
 
@@ -71,7 +80,8 @@ export default function UserDashboard() {
         <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl"></div>
         <p className="text-neutral-400 text-xs font-medium tracking-widest uppercase mb-1">Solde Restant</p>
         <div className="flex items-baseline gap-2">
-          <span className="text-5xl font-bold text-amber-400">{data.balance}</span>
+          {/* Le solde se mettra à jour tout seul ici */}
+          <span className="text-5xl font-bold text-amber-400 transition-all duration-300">{data.balance}</span>
           <span className="text-neutral-400">/ 24 coupes</span>
         </div>
         <div className="mt-6 flex justify-between items-end">
@@ -85,59 +95,19 @@ export default function UserDashboard() {
           {data.qrToken ? <QRCode value={data.qrToken} size={180} bgColor="#FFFFFF" fgColor="#171717" level="H" /> : <div className="w-[180px] h-[180px] flex items-center justify-center text-neutral-300"><RefreshCw className="animate-spin" /></div>}
         </div>
         <h3 className="font-semibold text-neutral-900 mb-1">Votre Pass Coupe</h3>
-        <p className="text-sm text-neutral-500 max-w-[200px]">Présentez ce code à votre coiffeur pour valider votre passage.</p>
+        <p className="text-sm text-neutral-500 max-w-[200px]">Présentez ce code à votre coiffeur.</p>
       </div>
 
-      {/* MODAL RÉGLAGES UTILISATEUR */}
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl relative">
                 <h3 className="text-lg font-bold mb-4">Modifier mon profil</h3>
-                
-                {/* noValidate pour bypasser les messages du navigateur */}
                 <form onSubmit={handleSettingsSave} noValidate className="space-y-4">
-                    
-                    {/* POPUP SUCCÈS */}
-                    {successMsg && (
-                        <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2 animate-fade-in">
-                            <CheckCircle size={18} className="shrink-0" />
-                            <span>{successMsg}</span>
-                        </div>
-                    )}
-
-                    {/* POPUP ERREUR (STYLE LOGIN) */}
-                    {errorMsg && (
-                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-start gap-2 animate-shake">
-                            <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                            <span>{errorMsg}</span>
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="text-xs text-neutral-400 uppercase font-bold">Email</label>
-                        <input 
-                            className={`w-full p-3 rounded-lg bg-neutral-50 border mt-1 focus:outline-none transition-all
-                                ${errorMsg && !settingsForm.email ? 'border-red-300 focus:border-red-500' : 'border-neutral-200 focus:border-neutral-900'}`}
-                            type="email" 
-                            value={settingsForm.email} 
-                            onChange={e => { setSettingsForm({...settingsForm, email: e.target.value}); setErrorMsg(''); }} 
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-neutral-400 uppercase font-bold">Nouveau mot de passe</label>
-                        <input 
-                            className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" 
-                            type="password" 
-                            placeholder="••••••" 
-                            value={settingsForm.password} 
-                            onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} 
-                        />
-                    </div>
-                    
-                    <div className="flex gap-3 pt-2">
-                        <button type="button" onClick={() => { setShowSettings(false); setSuccessMsg(''); setErrorMsg(''); }} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium hover:bg-neutral-50">Annuler</button>
-                        <button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2 hover:bg-neutral-800"><Save size={18} /> Valider</button>
-                    </div>
+                    {successMsg && <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2"><CheckCircle size={18} /><span>{successMsg}</span></div>}
+                    {errorMsg && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{errorMsg}</span></div>}
+                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Email</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="email" value={settingsForm.email} onChange={e => { setSettingsForm({...settingsForm, email: e.target.value}); setErrorMsg(''); }} /></div>
+                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="password" placeholder="••••••" value={settingsForm.password} onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} /></div>
+                    <div className="flex gap-3 pt-2"><button type="button" onClick={() => { setShowSettings(false); setSuccessMsg(''); setErrorMsg(''); }} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button><button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Valider</button></div>
                 </form>
             </div>
         </div>

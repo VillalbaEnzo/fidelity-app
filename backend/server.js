@@ -68,12 +68,12 @@ app.post('/api/admin/scan', auth, async (req, res) => {
     res.json({ success: true, newBalance: user.balance, email: user.email });
 });
 
-// 5. Liste des utilisateurs (Tri : Coiffeurs en premier, puis Clients récents)
+// 5. Liste des utilisateurs (Tri : Admin d'abord, puis les plus récents)
 app.get('/api/admin/users', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
-        sort({ role: 1 }) //-> 'admin' avant 'user'
-        // sort({ _id: -1 }) -> Les plus récents en premier à l'intérieur du groupe
+        // role: 1 => Alphabétique (admin arrive avant user)
+        // _id: -1 => Les derniers inscrits en premier
         const users = await User.find().select('-password').sort({ role: 1, _id: -1 });
         res.json(users);
     } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
