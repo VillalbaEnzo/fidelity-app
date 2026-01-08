@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import QRCode from 'react-qr-code';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, RefreshCw, Settings, Save, CheckCircle, AlertCircle } from 'lucide-react'; // + CheckCircle, AlertCircle
+import { LogOut, RefreshCw, Settings, Save, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function UserDashboard() {
   const [data, setData] = useState({ balance: 0, qrToken: '', email: '' });
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ email: '', password: '' });
-  const [successMsg, setSuccessMsg] = useState(''); // Nouveau state succès
-  const [errorMsg, setErrorMsg] = useState('');     // Nouveau state erreur
+  const [successMsg, setSuccessMsg] = useState(''); 
+  const [errorMsg, setErrorMsg] = useState('');     
   const navigate = useNavigate();
 
   useEffect(() => { fetchData(); }, []);
@@ -27,17 +27,22 @@ export default function UserDashboard() {
       setErrorMsg('');
       setSuccessMsg('');
 
+      // --- VALIDATION FRONTEND ---
+      // Vérification stricte avant d'envoyer
+      if (!settingsForm.email || !settingsForm.email.includes('@')) {
+          setErrorMsg("Veuillez saisir une adresse email valide.");
+          return;
+      }
+
       try {
           await axios.put(import.meta.env.VITE_API_URL + '/api/user/me', settingsForm, {
               headers: { Authorization: `Bearer ${token}` }
           });
           
-          // Succès !
-          setSuccessMsg("Modifications enregistrées avec succès !");
+          setSuccessMsg("Profil mis à jour avec succès !");
           setSettingsForm({ ...settingsForm, password: '' });
           fetchData();
           
-          // Ferme le modal après 2 secondes pour laisser le temps de lire
           setTimeout(() => {
               setSuccessMsg('');
               setShowSettings(false);
@@ -89,9 +94,10 @@ export default function UserDashboard() {
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl relative">
                 <h3 className="text-lg font-bold mb-4">Modifier mon profil</h3>
                 
-                <form onSubmit={handleSettingsSave} className="space-y-4">
+                {/* noValidate pour bypasser les messages du navigateur */}
+                <form onSubmit={handleSettingsSave} noValidate className="space-y-4">
                     
-                    {/* --- POPUP SUCCÈS (VERT) --- */}
+                    {/* POPUP SUCCÈS */}
                     {successMsg && (
                         <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2 animate-fade-in">
                             <CheckCircle size={18} className="shrink-0" />
@@ -99,21 +105,33 @@ export default function UserDashboard() {
                         </div>
                     )}
 
-                    {/* --- POPUP ERREUR (ROUGE) --- */}
+                    {/* POPUP ERREUR (STYLE LOGIN) */}
                     {errorMsg && (
-                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake">
-                            <AlertCircle size={18} className="shrink-0" />
+                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-start gap-2 animate-shake">
+                            <AlertCircle size={18} className="shrink-0 mt-0.5" />
                             <span>{errorMsg}</span>
                         </div>
                     )}
 
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Email</label>
-                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="email" value={settingsForm.email} onChange={e => setSettingsForm({...settingsForm, email: e.target.value})} />
+                        <input 
+                            className={`w-full p-3 rounded-lg bg-neutral-50 border mt-1 focus:outline-none transition-all
+                                ${errorMsg && !settingsForm.email ? 'border-red-300 focus:border-red-500' : 'border-neutral-200 focus:border-neutral-900'}`}
+                            type="email" 
+                            value={settingsForm.email} 
+                            onChange={e => { setSettingsForm({...settingsForm, email: e.target.value}); setErrorMsg(''); }} 
+                        />
                     </div>
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Nouveau mot de passe</label>
-                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="password" placeholder="••••••" value={settingsForm.password} onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} />
+                        <input 
+                            className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" 
+                            type="password" 
+                            placeholder="••••••" 
+                            value={settingsForm.password} 
+                            onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} 
+                        />
                     </div>
                     
                     <div className="flex gap-3 pt-2">
