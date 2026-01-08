@@ -56,7 +56,7 @@ export default function AdminScanner() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:5000/api/admin/scan', 
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/scan`,
         { qrData },
         { headers: { Authorization: `Bearer ${token}` } }
       );

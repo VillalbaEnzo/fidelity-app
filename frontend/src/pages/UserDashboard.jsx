@@ -14,7 +14,7 @@ export default function UserDashboard() {
 
   const fetchData = () => {
     const token = localStorage.getItem('token');
-    axios.get('http://localhost:5000/api/user/me', {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/user/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => setData(res.data))
