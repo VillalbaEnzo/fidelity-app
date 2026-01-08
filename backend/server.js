@@ -89,6 +89,43 @@ app.post('/api/admin/users', auth, async (req, res) => {
     } catch (err) { res.status(400).json({ error: "Email déjà existant ou invalide" }); }
 });
 
+app.put('/api/admin/users/:id', auth, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
+    
+    try {
+        const { email, balance, password } = req.body;
+        const updateData = { email, balance };
+
+        // On ne met à jour le mot de passe que s'il est fourni (non vide)
+        if (password && password.trim() !== "") {
+            updateData.password = await bcrypt.hash(password, 10);
+        }
+
+        await User.findByIdAndUpdate(req.params.id, updateData);
+        res.json({ success: true, message: "Utilisateur mis à jour" });
+    } catch (err) {
+        res.status(400).json({ error: "Erreur : Email peut-être déjà pris." });
+    }
+});
+
+// 9. USER : Modifier son profil (Email, Mot de passe uniquement)
+app.put('/api/user/me', auth, async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const updateData = { email };
+
+        if (password && password.trim() !== "") {
+            updateData.password = await bcrypt.hash(password, 10);
+        }
+
+        // Attention : On n'autorise PAS la modification du 'balance' ici
+        await User.findByIdAndUpdate(req.user.id, updateData);
+        res.json({ success: true, message: "Profil mis à jour" });
+    } catch (err) {
+        res.status(400).json({ error: "Erreur ou Email déjà pris." });
+    }
+});
+
 mongoose.connect(process.env.MONGO_URI)
     .then(() => app.listen(process.env.PORT, () => console.log(`Serveur prêt sur port ${process.env.PORT}`)))
     .catch(err => console.error(err));
