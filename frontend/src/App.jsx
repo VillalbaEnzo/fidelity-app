@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import UserDashboard from './pages/UserDashboard';
-import AdminScanner from './pages/AdminScanner';
+import AdminDashboard from './pages/AdminDashboard';
 
 const PrivateRoute = ({ children, role }) => {
     const token = localStorage.getItem('token');
@@ -22,7 +22,7 @@ function App() {
         } />
 
         <Route path="/admin" element={
-          <PrivateRoute role="admin"><AdminScanner /></PrivateRoute>
+          <PrivateRoute role="admin"><AdminDashboard /></PrivateRoute>
         } />
       </Routes>
     </BrowserRouter>

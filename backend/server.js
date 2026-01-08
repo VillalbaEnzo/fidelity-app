@@ -45,6 +45,12 @@ app.post('/api/login', async (req, res) => {
     res.json({ token, role: user.role });
 });
 
+app.get('/api/user/balance', auth, async (req, res) => {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).send("User not found");
+    res.json({ balance: user.balance });
+});
+
 app.get('/api/user/me', auth, async (req, res) => {
     const tokenQR = uuidv4();
     const user = await User.findByIdAndUpdate(req.user.id, { qrToken: tokenQR }, { new: true });
