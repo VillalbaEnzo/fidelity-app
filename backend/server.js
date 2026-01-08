@@ -68,12 +68,13 @@ app.post('/api/admin/scan', auth, async (req, res) => {
     res.json({ success: true, newBalance: user.balance, email: user.email });
 });
 
-// 5. Liste des utilisateurs (Tous)
+// 5. Liste des utilisateurs (Tri : Coiffeurs en premier, puis Clients récents)
 app.get('/api/admin/users', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
-        // On enlève le filtre { role: 'user' } pour voir tout le monde
-        const users = await User.find().select('-password').sort({ _id: -1 });
+        sort({ role: 1 }) //-> 'admin' avant 'user'
+        // sort({ _id: -1 }) -> Les plus récents en premier à l'intérieur du groupe
+        const users = await User.find().select('-password').sort({ role: 1, _id: -1 });
         res.json(users);
     } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });

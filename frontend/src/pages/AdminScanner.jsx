@@ -2,14 +2,13 @@ import { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle, Shield } from 'lucide-react';
+import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle, Shield, Scissors } from 'lucide-react';
 
 export default function AdminScanner() {
   const [activeTab, setActiveTab] = useState('scan');
   const [users, setUsers] = useState([]);
   
   const [editingUser, setEditingUser] = useState(null);
-  // Ajout du champ 'role' par défaut à 'user'
   const [formData, setFormData] = useState({ email: '', password: '', balance: 24, role: 'user' });
   const [showModal, setShowModal] = useState(false);
   
@@ -69,10 +68,8 @@ export default function AdminScanner() {
     setModalSuccess(''); 
     setModalError('');
     if (user) {
-        // Mode Édition : on charge les données existantes
         setFormData({ email: user.email, password: '', balance: user.balance, role: user.role || 'user' });
     } else {
-        // Mode Création : valeurs par défaut
         setFormData({ email: '', password: '', balance: 24, role: 'user' });
     }
     setShowModal(true);
@@ -124,7 +121,7 @@ export default function AdminScanner() {
     <div className="flex flex-col h-screen bg-neutral-50 text-neutral-900 font-sans">
       <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-10">
         <div>
-          <h1 className="text-lg font-bold text-neutral-900">Atelier Admin</h1>
+          <h1 className="text-lg font-bold text-neutral-900">Pacheco Admin</h1>
           <p className="text-neutral-400 text-[10px] uppercase tracking-widest">{activeTab === 'scan' ? 'Scanner' : 'Gestion Utilisateurs'}</p>
         </div>
         <button onClick={() => { localStorage.clear(); navigate('/'); }} className="p-2 bg-neutral-100 rounded-full text-neutral-500"><LogOut size={18} /></button>
@@ -157,18 +154,30 @@ export default function AdminScanner() {
 
                 <div className="space-y-3">
                     {users.map(u => (
-                        <div key={u._id} className="bg-white p-4 rounded-xl shadow-sm border border-neutral-100 flex justify-between items-center">
+                        <div key={u._id} className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${u.role === 'admin' ? 'bg-neutral-100 border-neutral-200' : 'bg-white border-neutral-100'}`}>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <p className="font-semibold text-sm">{u.email}</p>
-                                    {/* Petit badge si c'est un admin */}
-                                    {u.role === 'admin' && <span className="bg-black text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">Coiffeur</span>}
+                                    <p className="font-semibold text-sm text-neutral-800">{u.email}</p>
+                                    
+                                    {/* BADGE ADMIN */}
+                                    {u.role === 'admin' && (
+                                        <span className="bg-neutral-900 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex items-center gap-1">
+                                            <Scissors size={8} /> Coiffeur
+                                        </span>
+                                    )}
                                 </div>
-                                <p className="text-xs text-neutral-400">Solde: <span className="text-amber-500 font-bold">{u.balance}</span></p>
+                                
+                                {/* AFFICHER LE SOLDE UNIQUEMENT SI C'EST UN CLIENT (USER) */}
+                                {u.role === 'user' ? (
+                                    <p className="text-xs text-neutral-400">Solde: <span className="text-amber-500 font-bold">{u.balance}</span></p>
+                                ) : (
+                                    <p className="text-[10px] text-neutral-400 italic mt-0.5">Accès Gestionnaire</p>
+                                )}
                             </div>
+                            
                             <div className="flex gap-2">
-                                <button onClick={() => openModal(u)} className="p-2 bg-neutral-50 rounded-lg text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Pencil size={16} /></button>
-                                <button onClick={() => handleDelete(u._id)} className="p-2 bg-neutral-50 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={16} /></button>
+                                <button onClick={() => openModal(u)} className="p-2 bg-white border border-neutral-100 rounded-lg text-neutral-400 hover:text-blue-600 hover:border-blue-200 transition-colors"><Pencil size={16} /></button>
+                                <button onClick={() => handleDelete(u._id)} className="p-2 bg-white border border-neutral-100 rounded-lg text-neutral-400 hover:text-red-600 hover:border-red-200 transition-colors"><Trash2 size={16} /></button>
                             </div>
                         </div>
                     ))}
@@ -187,14 +196,14 @@ export default function AdminScanner() {
                     {modalSuccess && <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2"><CheckCircle size={18} /><span>{modalSuccess}</span></div>}
                     {modalError && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{modalError}</span></div>}
 
-                    {/* STATUT (RÔLE) */}
+                    {/* STATUT */}
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Statut du compte</label>
                         <div className="relative mt-1">
                             <select 
                                 value={formData.role} 
                                 onChange={e => setFormData({...formData, role: e.target.value})}
-                                className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 appearance-none focus:border-neutral-900 outline-none"
+                                className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 appearance-none focus:border-neutral-900 outline-none font-medium text-sm"
                             >
                                 <option value="user">Client (Fidélité)</option>
                                 <option value="admin">Coiffeur (Accès Scanner)</option>
@@ -207,14 +216,15 @@ export default function AdminScanner() {
                         <label className="text-xs text-neutral-400 uppercase font-bold">Email</label>
                         <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="email" value={formData.email} onChange={e => { setFormData({...formData, email: e.target.value}); setModalError(''); }} required />
                     </div>
+                    
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe {editingUser && '(vide = inchangé)'}</label>
                         <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
                     </div>
                     
-                    {/* Le solde ne s'affiche que si ce n'est pas un admin (optionnel, mais logique) */}
+                    {/* LE SOLDE N'APPARAIT QUE SI ROLE === USER */}
                     {formData.role === 'user' && (
-                        <div>
+                        <div className="animate-fade-in">
                             <label className="text-xs text-neutral-400 uppercase font-bold">Solde de coupes</label>
                             <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 font-mono text-lg focus:border-neutral-900 outline-none" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} />
                         </div>
