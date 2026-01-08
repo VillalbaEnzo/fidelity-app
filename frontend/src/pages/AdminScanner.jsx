@@ -2,25 +2,27 @@ import { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Check, X, User, Camera, Trash2, Plus, Users, Pencil, Save } from 'lucide-react';
+import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle } from 'lucide-react'; // Ajout des icones
 
 export default function AdminScanner() {
   const [activeTab, setActiveTab] = useState('scan');
   const [users, setUsers] = useState([]);
   
-  // États pour l'édition/création
-  const [editingUser, setEditingUser] = useState(null); // Si null = mode création, sinon mode édition
+  const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({ email: '', password: '', balance: 24 });
   const [showModal, setShowModal] = useState(false);
+  
+  // Nouveaux states feedback
+  const [modalSuccess, setModalSuccess] = useState('');
+  const [modalError, setModalError] = useState('');
 
-  // États Scanner
   const [scanResult, setScanResult] = useState(null); 
   const [data, setData] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const navigate = useNavigate();
   const scannerRef = useRef(null);
 
-  // --- LOGIQUE SCANNER ---
+  // --- LOGIQUE SCANNER (Inchangé) ---
   useEffect(() => {
     if (activeTab !== 'scan' || !isCameraActive) {
         if (scannerRef.current) {
@@ -34,7 +36,6 @@ export default function AdminScanner() {
     html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
       (decodedText) => handleScan(decodedText, html5QrCode), () => {}
     ).catch(() => setIsCameraActive(false));
-
     return () => { if (html5QrCode.isScanning) html5QrCode.stop().then(() => html5QrCode.clear()).catch(()=>{}); };
   }, [isCameraActive, activeTab]);
 
@@ -54,7 +55,7 @@ export default function AdminScanner() {
     setTimeout(() => { setScanResult(null); setData(null); try{scannerInstance.resume();}catch(e){} }, 3500);
   };
 
-  // --- LOGIQUE CLIENTS (CRUD) ---
+  // --- LOGIQUE CLIENTS ---
   const fetchUsers = async () => {
       const token = localStorage.getItem('token');
       try {
@@ -65,34 +66,38 @@ export default function AdminScanner() {
 
   const openModal = (user = null) => {
     setEditingUser(user);
-    if (user) {
-        // Mode Édition
-        setFormData({ email: user.email, password: '', balance: user.balance });
-    } else {
-        // Mode Création
-        setFormData({ email: '', password: '', balance: 24 });
-    }
+    setModalSuccess(''); // Reset messages
+    setModalError('');
+    if (user) setFormData({ email: user.email, password: '', balance: user.balance });
+    else setFormData({ email: '', password: '', balance: 24 });
     setShowModal(true);
   };
 
   const handleSave = async (e) => {
       e.preventDefault();
       const token = localStorage.getItem('token');
+      setModalError('');
+      setModalSuccess('');
+
       try {
           if (editingUser) {
-              // UPDATE
               await axios.put(`${import.meta.env.VITE_API_URL}/api/admin/users/${editingUser._id}`, formData, {
                   headers: { Authorization: `Bearer ${token}` }
               });
+              setModalSuccess("Client mis à jour !");
           } else {
-              // CREATE
               await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/users`, formData, {
                   headers: { Authorization: `Bearer ${token}` }
               });
+              setModalSuccess("Client créé avec succès !");
+              setFormData({ email: '', password: '', balance: 24 }); // Reset form si création
           }
-          setShowModal(false);
           fetchUsers();
-      } catch (err) { alert(err.response?.data?.error || "Erreur"); }
+          // On ferme après un court délai
+          setTimeout(() => { setShowModal(false); setModalSuccess(''); }, 1500);
+      } catch (err) { 
+          setModalError(err.response?.data?.error || "Une erreur est survenue"); 
+      }
   };
 
   const handleDelete = async (id) => {
@@ -159,12 +164,27 @@ export default function AdminScanner() {
         )}
       </main>
 
-      {/* MODAL ÉDITION / CRÉATION */}
+      {/* MODAL ÉDITION / CRÉATION AVEC POPUP SUCCÈS */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
                 <h3 className="text-lg font-bold mb-4">{editingUser ? 'Modifier le client' : 'Nouveau client'}</h3>
                 <form onSubmit={handleSave} className="space-y-4">
+                    
+                    {/* MESSAGE SUCCÈS VERT */}
+                    {modalSuccess && (
+                        <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2 animate-fade-in">
+                            <CheckCircle size={18} /> <span>{modalSuccess}</span>
+                        </div>
+                    )}
+                    
+                    {/* MESSAGE ERREUR ROUGE */}
+                    {modalError && (
+                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake">
+                            <AlertCircle size={18} /> <span>{modalError}</span>
+                        </div>
+                    )}
+
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Email</label>
                         <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
@@ -173,22 +193,21 @@ export default function AdminScanner() {
                         <label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe {editingUser && '(vide = inchangé)'}</label>
                         <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required={!editingUser} />
                     </div>
-                    {/* Le solde n'est affiché/modifiable que pour l'admin, donc toujours ici */}
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Solde de coupes</label>
                         <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 font-mono text-lg" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} required />
                     </div>
                     
                     <div className="flex gap-3 pt-2">
-                        <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button>
-                        <button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Sauvegarder</button>
+                        <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium hover:bg-neutral-50">Annuler</button>
+                        <button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2 hover:bg-neutral-800"><Save size={18} /> Sauvegarder</button>
                     </div>
                 </form>
             </div>
         </div>
       )}
 
-      {/* RESULTAT SCAN */}
+      {/* Overlay Scan (Reste inchangé) */}
       <div className={`fixed inset-x-0 bottom-0 p-6 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transform transition-transform duration-300 ease-out z-50 ${scanResult ? 'translate-y-0' : 'translate-y-full'}`}>
         {scanResult === 'success' && <div className="text-center"><div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-green-600"><Check size={24} /></div><h2 className="text-lg font-bold mb-1">Validé !</h2><p className="text-sm text-neutral-500">Nouveau solde : <b>{data?.newBalance}/24</b></p></div>}
         {scanResult === 'error' && <div className="text-center"><div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-red-600"><X size={24} /></div><h2 className="text-lg font-bold mb-1">Erreur</h2><p className="text-sm text-neutral-500">{data?.error}</p></div>}

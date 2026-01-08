@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Scissors, AlertCircle } from 'lucide-react';
+import { Scissors, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,89 +12,102 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    
+    // Validation locale simple
     if (!email.includes('@')) {
-      setError("Format d'email invalide.");
+      setError("Format d'email invalide");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError(''); 
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/login`, { email, password });
+      const res = await axios.post(import.meta.env.VITE_API_URL + '/api/login', { email, password });
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('role', res.data.role);
+      
       if(res.data.role === 'admin') navigate('/admin');
       else navigate('/user');
     } catch (err) {
       setError("Email ou mot de passe incorrect.");
-      setPassword('');
+      setPassword(''); 
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-neutral-900 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
-        <div className="p-8">
-          <div className="flex justify-center mb-6">
-            <div className="bg-neutral-100 p-4 rounded-full shadow-sm">
-              <Scissors className="w-8 h-8 text-neutral-900" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-semibold text-center text-neutral-900 mb-1">Pacheco • Coiffeur & barbier </h2>
-          <p className="text-center text-neutral-500 mb-8 text-sm">Espace Fidélité</p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-50 px-6 font-sans text-neutral-900">
+      
+      {/* Header visuel */}
+      <div className="mb-10 text-center animate-fade-in">
+        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-neutral-100">
+            <Scissors size={32} strokeWidth={1.5} className="text-neutral-800" />
+        </div>
+        <h1 className="text-3xl font-light tracking-tight text-neutral-900 mb-2">L'Atelier</h1>
+        <p className="text-sm text-neutral-400 uppercase tracking-widest font-medium">Espace Fidélité</p>
+      </div>
 
-          <form onSubmit={handleLogin} noValidate className="space-y-4">
+      {/* Carte de Connexion */}
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-neutral-100 p-8 animate-fade-in" style={{animationDelay: '0.1s'}}>
+          
+          <h2 className="text-xl font-bold mb-6 text-neutral-800">Bon retour</h2>
+
+          <form onSubmit={handleLogin} noValidate className="space-y-5">
+            
+            {/* Message d'erreur Shake */}
             {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded text-sm flex items-center gap-2 animate-shake">
-                <AlertCircle size={18} className="shrink-0" />
+              <div className="bg-red-50 border-l-4 border-red-500 text-red-600 p-4 rounded-lg text-sm flex items-start gap-3 animate-shake">
+                <AlertCircle size={18} className="shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1 ml-1">Email</label>
-              <input
-                className={`w-full px-4 py-3 rounded-lg bg-neutral-50 border focus:ring-1 outline-none transition-all
-                  ${error ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : 'border-neutral-200 focus:border-neutral-900 focus:ring-neutral-200'}`}
-                type="email"
-                required
-                placeholder="client@exemple.com"
-                value={email}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wide ml-1">Email</label>
+              <input 
+                className={`w-full px-4 py-3.5 rounded-xl bg-neutral-50 border outline-none transition-all
+                  ${error ? 'border-red-200 focus:border-red-500 focus:bg-white' : 'border-neutral-200 focus:border-neutral-900 focus:bg-white focus:ring-4 focus:ring-neutral-100'}`}
+                type="email" 
+                placeholder="nom@exemple.com"
+                value={email} 
                 onChange={e => { setEmail(e.target.value); setError(''); }}
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1 ml-1">Mot de passe</label>
-              <input
-                className={`w-full px-4 py-3 rounded-lg bg-neutral-50 border focus:ring-1 outline-none transition-all
-                  ${error ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : 'border-neutral-200 focus:border-neutral-900 focus:ring-neutral-200'}`}
-                type="password"
-                required
+            
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wide ml-1">Mot de passe</label>
+              <input 
+                className={`w-full px-4 py-3.5 rounded-xl bg-neutral-50 border outline-none transition-all
+                  ${error ? 'border-red-200 focus:border-red-500 focus:bg-white' : 'border-neutral-200 focus:border-neutral-900 focus:bg-white focus:ring-4 focus:ring-neutral-100'}`}
+                type="password" 
                 placeholder="••••••••"
-                value={password}
+                value={password} 
                 onChange={e => { setPassword(e.target.value); setError(''); }}
               />
             </div>
-            <button
+            
+            <button 
               disabled={loading}
-              className="w-full bg-neutral-900 text-white font-medium py-3.5 rounded-lg hover:bg-neutral-800 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+              className="w-full bg-neutral-900 text-white font-medium py-4 rounded-xl hover:bg-black active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-4 flex items-center justify-center gap-2 group shadow-lg shadow-neutral-200"
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  Connexion...
-                </span>
-              ) : 'Se connecter'}
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  Se connecter 
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
-        </div>
-        <div className="bg-neutral-50 px-8 py-4 border-t border-neutral-100 text-center">
-          <p className="text-xs text-neutral-400">© 2026 Pacheco • Coiffeur & barbier </p>
-        </div>
       </div>
+
+      <div className="mt-8 text-center">
+         <p className="text-xs text-neutral-400">© 2024 Salon Élégance</p>
+      </div>
+
     </div>
   );
 }

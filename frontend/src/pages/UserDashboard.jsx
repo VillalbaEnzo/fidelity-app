@@ -2,40 +2,49 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import QRCode from 'react-qr-code';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, RefreshCw, Settings, Save } from 'lucide-react';
+import { LogOut, RefreshCw, Settings, Save, CheckCircle, AlertCircle } from 'lucide-react'; // + CheckCircle, AlertCircle
 
 export default function UserDashboard() {
-  const [data, setData] = useState({ balance: 0, qrToken: '', email: '' }); // Ajout email dans state
+  const [data, setData] = useState({ balance: 0, qrToken: '', email: '' });
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ email: '', password: '' });
+  const [successMsg, setSuccessMsg] = useState(''); // Nouveau state succès
+  const [errorMsg, setErrorMsg] = useState('');     // Nouveau state erreur
   const navigate = useNavigate();
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = () => {
     const token = localStorage.getItem('token');
-    // Le backend renvoie aussi l'email maintenant (vérifie ton token si besoin, ou on le recupère ici)
     axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { headers: { Authorization: `Bearer ${token}` } })
-    .then(res => {
-        setData(res.data);
-        // On initialise le formulaire avec l'email actuel (si dispo, sinon on décode ou on laisse vide)
-    })
+    .then(res => setData(res.data))
     .catch(() => navigate('/'));
   };
 
   const handleSettingsSave = async (e) => {
       e.preventDefault();
       const token = localStorage.getItem('token');
+      setErrorMsg('');
+      setSuccessMsg('');
+
       try {
           await axios.put(import.meta.env.VITE_API_URL + '/api/user/me', settingsForm, {
               headers: { Authorization: `Bearer ${token}` }
           });
-          alert("Profil mis à jour !");
-          setShowSettings(false);
-          setSettingsForm({ ...settingsForm, password: '' }); // Reset password field only
-          fetchData(); // Rafraichir les données (pour l'email)
+          
+          // Succès !
+          setSuccessMsg("Modifications enregistrées avec succès !");
+          setSettingsForm({ ...settingsForm, password: '' });
+          fetchData();
+          
+          // Ferme le modal après 2 secondes pour laisser le temps de lire
+          setTimeout(() => {
+              setSuccessMsg('');
+              setShowSettings(false);
+          }, 2000);
+
       } catch (err) {
-          alert("Erreur : Email déjà pris ou invalide");
+          setErrorMsg(err.response?.data?.error || "Erreur lors de la mise à jour");
       }
   };
 
@@ -44,7 +53,7 @@ export default function UserDashboard() {
       <div className="w-full max-w-sm flex justify-between items-center mb-8">
         <h1 className="text-xl font-bold text-neutral-900">Mon Espace</h1>
         <div className="flex gap-4">
-            <button onClick={() => { setSettingsForm({email: '', password: ''}); setShowSettings(true); }} className="text-neutral-500 hover:text-neutral-900 transition-colors">
+            <button onClick={() => { setSettingsForm({email: data.email, password: ''}); setShowSettings(true); }} className="text-neutral-500 hover:text-neutral-900 transition-colors">
                 <Settings size={20} />
             </button>
             <button onClick={() => { localStorage.clear(); navigate('/'); }} className="text-neutral-500 hover:text-red-600 transition-colors">
@@ -79,18 +88,37 @@ export default function UserDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl relative">
                 <h3 className="text-lg font-bold mb-4">Modifier mon profil</h3>
+                
                 <form onSubmit={handleSettingsSave} className="space-y-4">
+                    
+                    {/* --- POPUP SUCCÈS (VERT) --- */}
+                    {successMsg && (
+                        <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2 animate-fade-in">
+                            <CheckCircle size={18} className="shrink-0" />
+                            <span>{successMsg}</span>
+                        </div>
+                    )}
+
+                    {/* --- POPUP ERREUR (ROUGE) --- */}
+                    {errorMsg && (
+                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake">
+                            <AlertCircle size={18} className="shrink-0" />
+                            <span>{errorMsg}</span>
+                        </div>
+                    )}
+
                     <div>
-                        <label className="text-xs text-neutral-400 uppercase font-bold">Nouvel Email</label>
-                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1" type="email" placeholder="Nouvel email (optionnel)" value={settingsForm.email} onChange={e => setSettingsForm({...settingsForm, email: e.target.value})} />
+                        <label className="text-xs text-neutral-400 uppercase font-bold">Email</label>
+                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="email" value={settingsForm.email} onChange={e => setSettingsForm({...settingsForm, email: e.target.value})} />
                     </div>
                     <div>
                         <label className="text-xs text-neutral-400 uppercase font-bold">Nouveau mot de passe</label>
-                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1" type="password" placeholder="•••••• (laisser vide si inchangé)" value={settingsForm.password} onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} />
+                        <input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 focus:border-neutral-900 outline-none" type="password" placeholder="••••••" value={settingsForm.password} onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} />
                     </div>
+                    
                     <div className="flex gap-3 pt-2">
-                        <button type="button" onClick={() => setShowSettings(false)} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button>
-                        <button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Valider</button>
+                        <button type="button" onClick={() => { setShowSettings(false); setSuccessMsg(''); setErrorMsg(''); }} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium hover:bg-neutral-50">Annuler</button>
+                        <button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2 hover:bg-neutral-800"><Save size={18} /> Valider</button>
                     </div>
                 </form>
             </div>

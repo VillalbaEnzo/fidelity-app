@@ -89,14 +89,29 @@ app.post('/api/admin/users', auth, async (req, res) => {
     } catch (err) { res.status(400).json({ error: "Email déjà existant ou invalide" }); }
 });
 
+// Fonction utilitaire pour valider l'email
+const validateEmail = (email) => {
+    return String(email)
+      .toLowerCase()
+      .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+};
+
+// 8. ADMIN : Modifier un utilisateur (Sécurisé)
 app.put('/api/admin/users/:id', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     
     try {
         const { email, balance, password } = req.body;
-        const updateData = { email, balance };
+        const updateData = { balance };
 
-        // On ne met à jour le mot de passe que s'il est fourni (non vide)
+        // Validation Email stricte
+        if (email !== undefined) {
+            if (!email || email.trim() === "" || !validateEmail(email)) {
+                return res.status(400).json({ error: "Email invalide ou vide interdit." });
+            }
+            updateData.email = email;
+        }
+
         if (password && password.trim() !== "") {
             updateData.password = await bcrypt.hash(password, 10);
         }
@@ -104,25 +119,32 @@ app.put('/api/admin/users/:id', auth, async (req, res) => {
         await User.findByIdAndUpdate(req.params.id, updateData);
         res.json({ success: true, message: "Utilisateur mis à jour" });
     } catch (err) {
-        res.status(400).json({ error: "Erreur : Email peut-être déjà pris." });
+        res.status(400).json({ error: "Cet email est déjà utilisé." });
     }
 });
 
-// 9. USER : Modifier son profil (Email, Mot de passe uniquement)
+// 9. USER : Modifier son profil (Sécurisé)
 app.put('/api/user/me', auth, async (req, res) => {
     try {
         const { email, password } = req.body;
-        const updateData = { email };
+        const updateData = {};
+
+        // Validation Email stricte
+        if (email !== undefined) {
+            if (!email || email.trim() === "" || !validateEmail(email)) {
+                return res.status(400).json({ error: "Email invalide ou vide interdit." });
+            }
+            updateData.email = email;
+        }
 
         if (password && password.trim() !== "") {
             updateData.password = await bcrypt.hash(password, 10);
         }
 
-        // Attention : On n'autorise PAS la modification du 'balance' ici
         await User.findByIdAndUpdate(req.user.id, updateData);
         res.json({ success: true, message: "Profil mis à jour" });
     } catch (err) {
-        res.status(400).json({ error: "Erreur ou Email déjà pris." });
+        res.status(400).json({ error: "Cet email est déjà utilisé." });
     }
 });
 
