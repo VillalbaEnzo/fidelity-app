@@ -139,7 +139,7 @@ export default function AdminDashboard() {
       {/* Header fixe */}
       <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20 shrink-0 h-16">
         <div>
-          <h1 className="text-lg font-bold text-neutral-900">Atelier Admin</h1>
+          <h1 className="text-lg font-bold text-neutral-900">Pacheco • Admin</h1>
           <p className="text-neutral-400 text-[10px] uppercase tracking-widest">{activeTab === 'scan' ? 'Scanner' : 'Gestion Utilisateurs'}</p>
         </div>
         <button onClick={() => { localStorage.clear(); navigate('/'); }} className="p-2 bg-neutral-100 rounded-full text-neutral-500"><LogOut size={18} /></button>
