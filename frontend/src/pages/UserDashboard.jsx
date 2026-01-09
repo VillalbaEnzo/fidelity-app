@@ -8,8 +8,8 @@ export default function UserDashboard() {
   const [data, setData] = useState({ balance: 0, qrToken: '', email: '' });
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ email: '', password: '' });
-  const [successMsg, setSuccessMsg] = useState(''); 
-  const [errorMsg, setErrorMsg] = useState('');     
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
   // 1. Chargement initial (QR Code + Solde + Email) - UNE SEULE FOIS
@@ -61,7 +61,7 @@ export default function UserDashboard() {
           });
           setSuccessMsg("Profil mis à jour avec succès !");
           setSettingsForm({ ...settingsForm, password: '' });
-          
+
           // Petit refresh des données globales
           const res = await axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { headers: { Authorization: `Bearer ${token}` } });
           setData(prev => ({...prev, email: res.data.email}));

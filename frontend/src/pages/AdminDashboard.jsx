@@ -7,7 +7,7 @@ import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircl
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('scan');
   const [users, setUsers] = useState([]);
-  
+
   // États CRUD
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({ email: '', password: '', balance: 24, role: 'user' });
@@ -16,7 +16,7 @@ export default function AdminDashboard() {
   const [modalError, setModalError] = useState('');
 
   // États Scanner
-  const [scanResult, setScanResult] = useState(null); 
+  const [scanResult, setScanResult] = useState(null);
   const [data, setData] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [permissionError, setPermissionError] = useState(false); // Pour gérer le refus caméra
@@ -33,7 +33,7 @@ export default function AdminDashboard() {
         }
         // Nettoyage forcé du DOM pour éviter l'écran blanc
         const reader = document.getElementById("reader");
-        if(reader) reader.innerHTML = ""; 
+        if(reader) reader.innerHTML = "";
         return;
     }
 
@@ -42,9 +42,9 @@ export default function AdminDashboard() {
 
     // Démarrage de la caméra
     html5QrCode.start(
-      { facingMode: "environment" }, 
+      { facingMode: "environment" },
       { fps: 10, qrbox: { width: 250, height: 250 } },
-      (decodedText) => handleScan(decodedText, html5QrCode), 
+      (decodedText) => handleScan(decodedText, html5QrCode),
       () => {} // Erreur de scan silencieuse (pas de QR détecté frame par frame)
     ).catch((err) => {
         console.error("Erreur caméra:", err);
@@ -72,12 +72,12 @@ export default function AdminDashboard() {
       setData(err.response?.data || { error: "Erreur inconnue" });
       setScanResult('error');
     }
-    
+
     // Délai avant de relancer le scan
-    setTimeout(() => { 
-        setScanResult(null); 
-        setData(null); 
-        try{ scannerInstance.resume(); } catch(e){} 
+    setTimeout(() => {
+        setScanResult(null);
+        setData(null);
+        try{ scannerInstance.resume(); } catch(e){}
     }, 3500);
   };
 
@@ -104,9 +104,9 @@ export default function AdminDashboard() {
 
       if (!formData.email || !formData.email.includes('@')) {
         setModalError("Veuillez saisir une adresse email valide.");
-        return; 
+        return;
       }
-      
+
       const token = localStorage.getItem('token');
       try {
           if (editingUser) {
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-neutral-50 text-neutral-900 font-sans overflow-hidden">
-      
+
       {/* Header fixe */}
       <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20 shrink-0 h-16">
         <div>
@@ -147,37 +147,38 @@ export default function AdminDashboard() {
 
       {/* Main scrollable */}
       <main className="flex-1 overflow-hidden relative w-full">
-        
-        {/* Vue Scanner */}
-        {activeTab === 'scan' && (
-            <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in w-full">
-                
-                {permissionError && (
-                    <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-center text-sm max-w-xs border border-red-100">
-                        <AlertCircle className="mx-auto mb-2" />
-                        <p>L'accès à la caméra a été refusé. Vérifiez vos réglages.</p>
-                    </div>
-                )}
 
-                {!isCameraActive ? (
-                    <div className="text-center">
-                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-neutral-100">
-                            <Camera size={32} className="text-neutral-300" />
-                        </div>
-                        <button onClick={() => { setPermissionError(false); setIsCameraActive(true); }} className="px-6 py-3 bg-neutral-900 text-white rounded-xl shadow-lg font-medium flex items-center gap-2 mx-auto active:scale-95 transition-transform">
-                            <Camera size={18} /> Activer la caméra
-                        </button>
-                    </div>
-                ) : (
-                    <div className="w-full max-w-sm relative flex flex-col items-center">
-                         <div className="relative w-full aspect-square bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-                            <div id="reader" className="w-full h-full"></div>
-                         </div>
-                         <button onClick={() => setIsCameraActive(false)} className="mt-8 px-6 py-3 bg-white border border-neutral-200 rounded-xl text-sm font-medium shadow-sm text-red-500">Arrêter la caméra</button>
-                    </div>
-                )}
+        {/* Vue Scanner */}
+    {activeTab === 'scan' && (
+    <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in w-full">
+        {permissionError && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-center text-sm max-w-xs border border-red-100">
+                <AlertCircle className="mx-auto mb-2" />
+                <p>L'accès à la caméra a été refusé.</p>
             </div>
         )}
+
+        {/* --- CHANGEMENT ICI : On garde les deux blocs dans le DOM, on joue sur 'hidden' --- */}
+        {/* Bloc d'activation (Bouton) */}
+        <div className={`text-center ${isCameraActive ? 'hidden' : 'block'}`}>
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-neutral-100">
+                <Camera size={32} className="text-neutral-300" />
+            </div>
+            <button onClick={() => { setPermissionError(false); setIsCameraActive(true); }} className="px-6 py-3 bg-neutral-900 text-white rounded-xl shadow-lg font-medium flex items-center gap-2 mx-auto">
+                <Camera size={18} /> Activer la caméra
+            </button>
+        </div>
+
+        {/* Bloc Caméra (Scanner) */}
+        <div className={`w-full max-w-sm relative flex flex-col items-center ${isCameraActive ? 'block' : 'hidden'}`}>
+             <div className="relative w-full aspect-square bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+                {/* La div reader existe toujours, donc pas de crash au stop() */}
+                <div id="reader" className="w-full h-full"></div>
+             </div>
+             <button onClick={() => setIsCameraActive(false)} className="mt-8 px-6 py-3 bg-white border border-neutral-200 rounded-xl text-sm font-medium shadow-sm text-red-500">Arrêter la caméra</button>
+        </div>
+    </div>
+    )}
 
         {/* Vue Liste */}
         {activeTab === 'list' && (

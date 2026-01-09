@@ -97,20 +97,17 @@ app.delete('/api/admin/users/:id', auth, async (req, res) => {
 app.post('/api/admin/users', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
-        // On récupère aussi le 'role'
-        const { email, password, role } = req.body; 
-        
-        // Validation simple
+        // AJOUTEZ 'balance' dans la récupération
+        const { email, password, role, balance } = req.body;
         if (!email || !email.includes('@')) return res.status(400).json({ error: "Email invalide" });
-        
         const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // On force le role à 'user' si rien n'est envoyé, sinon on prend la valeur (admin ou user)
-        const newUser = await User.create({ 
-            email, 
-            password: hashedPassword, 
-            role: role || 'user', 
-            balance: 24 
+
+        const newUser = await User.create({
+            email,
+            password: hashedPassword,
+            role: role || 'user',
+            // UTILISEZ le solde envoyé ou 24 par défaut
+            balance: balance !== undefined ? balance : 24
         });
 
         res.json({ success: true, user: { email: newUser.email, role: newUser.role } });
@@ -120,7 +117,7 @@ app.post('/api/admin/users', auth, async (req, res) => {
 // 8. ADMIN : Modifier un utilisateur (Avec gestion du Rôle)
 app.put('/api/admin/users/:id', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
-    
+
     try {
         const { email, balance, password, role } = req.body;
         const updateData = { balance };
