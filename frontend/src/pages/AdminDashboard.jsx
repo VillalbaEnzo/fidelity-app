@@ -28,10 +28,8 @@ export default function AdminDashboard() {
     // Si on n'est pas en mode scan ou caméra éteinte, on nettoie tout
     if (activeTab !== 'scan' || !isCameraActive) {
         if (scannerRef.current) {
-            scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
             scannerRef.current = null;
         }
-        // Nettoyage forcé du DOM pour éviter l'écran blanc
         const reader = document.getElementById("reader");
         if(reader) reader.innerHTML = "";
         return;
@@ -175,7 +173,7 @@ export default function AdminDashboard() {
                 {/* La div reader existe toujours, donc pas de crash au stop() */}
                 <div id="reader" className="w-full h-full"></div>
              </div>
-             <button onClick={() => setIsCameraActive(false)} className="mt-8 px-6 py-3 bg-white border border-neutral-200 rounded-xl text-sm font-medium shadow-sm text-red-500">Arrêter la caméra</button>
+             <button onClick={() => {setIsCameraActive(false)}} className="mt-8 px-6 py-3 bg-white border border-neutral-200 rounded-xl text-sm font-medium shadow-sm text-red-500">Arrêter la caméra</button>
         </div>
     </div>
     )}
