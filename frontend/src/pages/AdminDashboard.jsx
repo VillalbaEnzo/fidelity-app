@@ -8,51 +8,55 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('scan');
   const [users, setUsers] = useState([]);
   
+  // États CRUD
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({ email: '', password: '', balance: 24, role: 'user' });
   const [showModal, setShowModal] = useState(false);
-  
   const [modalSuccess, setModalSuccess] = useState('');
   const [modalError, setModalError] = useState('');
 
+  // États Scanner
   const [scanResult, setScanResult] = useState(null); 
   const [data, setData] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [permissionError, setPermissionError] = useState(false); // Pour gérer le refus caméra
   const navigate = useNavigate();
   const scannerRef = useRef(null);
 
   // --- LOGIQUE SCANNER ---
   useEffect(() => {
-    // Si la caméra ne doit pas être active
+    // Si on n'est pas en mode scan ou caméra éteinte, on nettoie tout
     if (activeTab !== 'scan' || !isCameraActive) {
         if (scannerRef.current) {
-            // On tente d'arrêter proprement
-            scannerRef.current.stop().then(() => {
-                scannerRef.current.clear();
-            }).catch(() => {
-                // Erreur ignorée lors de l'arrêt
-            }).finally(() => {
-                 scannerRef.current = null;
-            });
+            scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
+            scannerRef.current = null;
         }
+        // Nettoyage forcé du DOM pour éviter l'écran blanc
+        const reader = document.getElementById("reader");
+        if(reader) reader.innerHTML = ""; 
         return;
     }
 
-    // Si on arrive ici, c'est qu'on doit lancer la caméra
-    // On attend un tout petit peu que le DIV soit bien rendu par React
-    const timeoutId = setTimeout(() => {
-        const html5QrCode = new Html5Qrcode("reader");
-        scannerRef.current = html5QrCode;
+    const html5QrCode = new Html5Qrcode("reader");
+    scannerRef.current = html5QrCode;
 
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => handleScan(decodedText, html5QrCode), () => {}
-        ).catch((err) => {
-            setIsCameraActive(false);
-            alert("Erreur caméra : " + err);
-        });
-    }, 100);
+    // Démarrage de la caméra
+    html5QrCode.start(
+      { facingMode: "environment" }, 
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (decodedText) => handleScan(decodedText, html5QrCode), 
+      () => {} // Erreur de scan silencieuse (pas de QR détecté frame par frame)
+    ).catch((err) => {
+        console.error("Erreur caméra:", err);
+        setPermissionError(true);
+        setIsCameraActive(false); // On éteint l'état caméra pour revenir au bouton
+    });
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+       if (html5QrCode.isScanning) {
+           html5QrCode.stop().then(() => html5QrCode.clear()).catch(()=>{});
+       }
+    };
   }, [isCameraActive, activeTab]);
 
   const handleScan = async (qrData, scannerInstance) => {
@@ -69,7 +73,7 @@ export default function AdminDashboard() {
       setScanResult('error');
     }
     
-    // Après 3.5s, on reset et on relance
+    // Délai avant de relancer le scan
     setTimeout(() => { 
         setScanResult(null); 
         setData(null); 
@@ -77,7 +81,7 @@ export default function AdminDashboard() {
     }, 3500);
   };
 
-  // --- LOGIQUE CLIENTS (inchangée) ---
+  // --- LOGIQUE UTILISATEURS ---
   const fetchUsers = async () => {
       const token = localStorage.getItem('token');
       try {
@@ -132,7 +136,8 @@ export default function AdminDashboard() {
   return (
     <div className="flex flex-col h-[100dvh] bg-neutral-50 text-neutral-900 font-sans overflow-hidden">
       
-      <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20 shrink-0">
+      {/* Header fixe */}
+      <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20 shrink-0 h-16">
         <div>
           <h1 className="text-lg font-bold text-neutral-900">Atelier Admin</h1>
           <p className="text-neutral-400 text-[10px] uppercase tracking-widest">{activeTab === 'scan' ? 'Scanner' : 'Gestion Utilisateurs'}</p>
@@ -140,36 +145,48 @@ export default function AdminDashboard() {
         <button onClick={() => { localStorage.clear(); navigate('/'); }} className="p-2 bg-neutral-100 rounded-full text-neutral-500"><LogOut size={18} /></button>
       </header>
 
-      <main className="flex-1 overflow-hidden relative">
+      {/* Main scrollable */}
+      <main className="flex-1 overflow-hidden relative w-full">
         
-        {/* --- ONGLET SCAN --- */}
+        {/* Vue Scanner */}
         {activeTab === 'scan' && (
-            <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in">
+            <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in w-full">
+                
+                {permissionError && (
+                    <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-center text-sm max-w-xs border border-red-100">
+                        <AlertCircle className="mx-auto mb-2" />
+                        <p>L'accès à la caméra a été refusé. Vérifiez vos réglages.</p>
+                    </div>
+                )}
+
                 {!isCameraActive ? (
                     <div className="text-center">
-                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md"><Camera size={32} className="text-neutral-300" /></div>
-                        <button onClick={() => setIsCameraActive(true)} className="px-6 py-3 bg-neutral-900 text-white rounded-xl shadow-lg font-medium flex items-center gap-2 mx-auto"><Camera size={18} /> Activer</button>
+                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-neutral-100">
+                            <Camera size={32} className="text-neutral-300" />
+                        </div>
+                        <button onClick={() => { setPermissionError(false); setIsCameraActive(true); }} className="px-6 py-3 bg-neutral-900 text-white rounded-xl shadow-lg font-medium flex items-center gap-2 mx-auto active:scale-95 transition-transform">
+                            <Camera size={18} /> Activer la caméra
+                        </button>
                     </div>
                 ) : (
                     <div className="w-full max-w-sm relative flex flex-col items-center">
                          <div className="relative w-full aspect-square bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-                            {/* C'est ICI le changement : si on arrête, cette div n'existe plus */}
-                            <div id="reader" className="w-full h-full absolute inset-0 [&>video]:object-cover [&>video]:w-full [&>video]:h-full"></div>
+                            <div id="reader" className="w-full h-full"></div>
                          </div>
-                         <button onClick={() => setIsCameraActive(false)} className="mt-8 px-6 py-2 bg-white border border-neutral-200 rounded-full text-sm font-medium shadow-sm z-30">Arrêter la caméra</button>
+                         <button onClick={() => setIsCameraActive(false)} className="mt-8 px-6 py-3 bg-white border border-neutral-200 rounded-xl text-sm font-medium shadow-sm text-red-500">Arrêter la caméra</button>
                     </div>
                 )}
             </div>
         )}
 
-        {/* --- ONGLET LISTE --- */}
+        {/* Vue Liste */}
         {activeTab === 'list' && (
-            <div className="h-full overflow-y-auto p-4 animate-fade-in">
+            <div className="h-full overflow-y-auto p-4 animate-fade-in w-full pb-24">
                 <button onClick={() => openModal()} className="w-full bg-neutral-900 text-white p-4 rounded-xl font-medium mb-6 flex justify-center items-center gap-2 shadow-lg">
                     <Plus size={20} /> Ajouter un utilisateur
                 </button>
 
-                <div className="space-y-3 pb-32">
+                <div className="space-y-3">
                     {users.map(u => (
                         <div key={u._id} className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${u.role === 'admin' ? 'bg-neutral-100 border-neutral-200' : 'bg-white border-neutral-100'}`}>
                             <div>
@@ -190,7 +207,7 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* --- MODAL (reste identique) --- */}
+      {/* Modal & Overlay restent ici... (J'ai coupé pour la lisibilité mais garde le même code de modal qu'avant) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
@@ -198,35 +215,26 @@ export default function AdminDashboard() {
                 <form onSubmit={handleSave} noValidate className="space-y-4">
                     {modalSuccess && <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2"><CheckCircle size={18} /><span>{modalSuccess}</span></div>}
                     {modalError && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{modalError}</span></div>}
-
-                    <div>
-                        <label className="text-xs text-neutral-400 uppercase font-bold">Statut</label>
-                        <div className="relative mt-1">
-                            <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 appearance-none outline-none font-medium text-sm">
-                                <option value="user">Client</option>
-                                <option value="admin">Coiffeur</option>
-                            </select>
-                            <Shield className="absolute right-3 top-3 text-neutral-400 pointer-events-none" size={16} />
-                        </div>
-                    </div>
-                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Email</label><input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 outline-none" type="email" value={formData.email} onChange={e => { setFormData({...formData, email: e.target.value}); setModalError(''); }} required /></div>
-                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe {editingUser && '(vide = inchangé)'}</label><input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 outline-none" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
-                    {formData.role === 'user' && (<div><label className="text-xs text-neutral-400 uppercase font-bold">Solde</label><input className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 mt-1 font-mono text-lg outline-none" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} /></div>)}
+                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Statut</label><div className="relative mt-1"><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 outline-none"><option value="user">Client</option><option value="admin">Coiffeur</option></select></div></div>
+                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Email</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="email" value={formData.email} onChange={e => { setFormData({...formData, email: e.target.value}); setModalError(''); }} required /></div>
+                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
+                    {formData.role === 'user' && (<div><label className="text-xs text-neutral-400 uppercase font-bold">Solde</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 font-mono text-lg outline-none" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} /></div>)}
                     <div className="flex gap-3 pt-2"><button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button><button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Sauvegarder</button></div>
                 </form>
             </div>
         </div>
       )}
 
-      {/* --- OVERLAY RESULTAT --- */}
+      {/* Overlay Résultat Scan */}
       <div className={`fixed inset-x-0 bottom-0 p-6 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transform transition-transform duration-300 ease-out z-50 ${scanResult ? 'translate-y-0' : 'translate-y-full'}`}>
         {scanResult === 'success' && <div className="text-center"><div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-green-600"><Check size={24} /></div><h2 className="text-lg font-bold mb-1">Validé !</h2><p className="text-sm text-neutral-500">Nouveau solde : <b>{data?.newBalance}/24</b></p></div>}
         {scanResult === 'error' && <div className="text-center"><div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-red-600"><X size={24} /></div><h2 className="text-lg font-bold mb-1">Erreur</h2><p className="text-sm text-neutral-500">{data?.error}</p></div>}
       </div>
 
-      <nav className="bg-white border-t border-neutral-100 flex justify-around p-2 pb-safe z-30 shrink-0">
-          <button onClick={() => setActiveTab('scan')} className={`flex flex-col items-center p-2 rounded-lg w-full transition-colors ${activeTab === 'scan' ? 'text-neutral-900' : 'text-neutral-300'}`}><Camera size={24} /><span className="text-[10px] font-medium mt-1">Scanner</span></button>
-          <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center p-2 rounded-lg w-full transition-colors ${activeTab === 'list' ? 'text-neutral-900' : 'text-neutral-300'}`}><Users size={24} /><span className="text-[10px] font-medium mt-1">Clients</span></button>
+      {/* Navbar Basse */}
+      <nav className="bg-white border-t border-neutral-100 flex justify-around p-2 pb-safe z-30 shrink-0 h-16">
+          <button onClick={() => setActiveTab('scan')} className={`flex flex-col items-center justify-center p-2 w-full transition-colors ${activeTab === 'scan' ? 'text-neutral-900' : 'text-neutral-300'}`}><Camera size={24} /><span className="text-[10px] font-medium mt-1">Scanner</span></button>
+          <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center justify-center p-2 w-full transition-colors ${activeTab === 'list' ? 'text-neutral-900' : 'text-neutral-300'}`}><Users size={24} /><span className="text-[10px] font-medium mt-1">Utilisateurs</span></button>
       </nav>
     </div>
   );
