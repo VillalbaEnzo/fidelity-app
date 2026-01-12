@@ -19,12 +19,20 @@ export default function Login() {
   useEffect(() => {
     const wakeUpServer = async () => {
       try {
-        // On tente de joindre le serveur
         await axios.get(import.meta.env.VITE_API_URL + '/api/ping');
-        setIsServerWakingUp(false); // Le serveur est prêt
+        
+        // --- TRICHE POUR LE TEST (A supprimer après) ---
+        // On attend 5 secondes avant de dire que c'est bon
+        setTimeout(() => {
+            setIsServerWakingUp(false);
+        }, 5000); 
+        // -----------------------------------------------
+
       } catch (err) {
-        // Même en cas d'erreur (sauf network error), le serveur a répondu
-        setIsServerWakingUp(false); 
+        // En cas d'erreur, on laisse aussi le délai pour voir l'effet
+        setTimeout(() => {
+            setIsServerWakingUp(false);
+        }, 5000);
       }
     };
     wakeUpServer();
