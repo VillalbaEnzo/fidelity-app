@@ -74,7 +74,7 @@ export default function Login() {
           {isServerWakingUp && (
             <div className="absolute top-0 left-0 w-full bg-amber-50 border-b border-amber-100 p-3 flex items-center justify-center gap-3 animate-pulse z-10">
                 <Server size={16} className="text-amber-600 animate-bounce" />
-                <span className="text-xs font-medium text-amber-700">Démarrage serveur (Hébergement gratuit)...</span>
+                <span className="text-xs font-medium text-amber-700">Démarrage serveur...</span>
                 {/* Barre de progression infinie en bas du bandeau */}
                 <div className="absolute bottom-0 left-0 h-[2px] bg-amber-200 w-full overflow-hidden">
                     <div className="w-full h-full bg-amber-500 origin-left animate-[loading_1.5s_ease-in-out_infinite]"></div>
