@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle, Shield, Scissors } from 'lucide-react';
+import { LogOut, Check, X, Camera, Trash2, Plus, Users, Pencil, Save, CheckCircle, AlertCircle, Shield, Scissors, Dices } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('scan');
@@ -23,6 +23,14 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const scannerRef = useRef(null);
 
+  const generateRandomPassword = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+    let pass = "";
+    for (let i = 0; i < 6; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormData({ ...formData, password: pass });
+  };
   // --- LOGIQUE SCANNER ---
   useEffect(() => {
     // Si on n'est pas en mode scan ou caméra éteinte, on nettoie tout
@@ -216,7 +224,27 @@ export default function AdminDashboard() {
                     {modalError && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{modalError}</span></div>}
                     <div><label className="text-xs text-neutral-400 uppercase font-bold">Statut</label><div className="relative mt-1"><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 rounded-lg bg-neutral-50 border border-neutral-200 outline-none"><option value="user">Client</option><option value="admin">Coiffeur</option></select></div></div>
                     <div><label className="text-xs text-neutral-400 uppercase font-bold">Email</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="email" value={formData.email} onChange={e => { setFormData({...formData, email: e.target.value}); setModalError(''); }} required /></div>
-                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="text" placeholder={editingUser ? "••••••" : "Obligatoire"} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
+                    <div>
+                        <label className="text-xs text-neutral-400 uppercase font-bold">Mot de passe</label>
+                        <div className="flex gap-2 mt-1">
+                            <input 
+                                className="w-full p-3 rounded-lg bg-neutral-50 border outline-none" 
+                                type="text" 
+                                placeholder={editingUser ? "Laisser vide pour ne pas changer" : "Obligatoire"} 
+                                value={formData.password} 
+                                onChange={e => setFormData({...formData, password: e.target.value})} 
+                            />
+                            {/* Bouton de génération aléatoire */}
+                            <button 
+                                type="button" 
+                                onClick={generateRandomPassword}
+                                className="p-3 bg-neutral-100 border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-200"
+                                title="Générer aléatoire"
+                            >
+                                <Dices size={20} />
+                            </button>
+                        </div>
+                    </div>
                     {formData.role === 'user' && (<div><label className="text-xs text-neutral-400 uppercase font-bold">Solde</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 font-mono text-lg outline-none" type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} /></div>)}
                     <div className="flex gap-3 pt-2"><button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button><button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Sauvegarder</button></div>
                 </form>

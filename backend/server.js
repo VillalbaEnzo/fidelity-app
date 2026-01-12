@@ -52,9 +52,24 @@ app.get('/api/user/balance', auth, async (req, res) => {
 });
 
 app.get('/api/user/me', auth, async (req, res) => {
-    const tokenQR = uuidv4();
-    const user = await User.findByIdAndUpdate(req.user.id, { qrToken: tokenQR }, { new: true });
-    res.json({ balance: user.balance, qrToken: tokenQR });
+    try {
+        let user = await User.findById(req.user.id);
+        if (!user) return res.status(404).send("User not found");
+
+        const now = new Date();
+        const isExpired = !user.qrToken || !user.qrTokenDate || (now - new Date(user.qrTokenDate) > 86400000);
+
+        if (isExpired) {
+            const tokenQR = uuidv4();
+            user = await User.findByIdAndUpdate(req.user.id, { 
+                qrToken: tokenQR, 
+                qrTokenDate: now 
+            }, { new: true });
+        }
+        res.json({ balance: user.balance, qrToken: user.qrToken, email: user.email });
+    } catch (err) {
+        res.status(500).json({ error: "Erreur serveur" });
+    }
 });
 
 app.post('/api/admin/scan', auth, async (req, res) => {
@@ -89,6 +104,13 @@ app.get('/api/admin/users', auth, async (req, res) => {
 app.delete('/api/admin/users/:id', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
+        const userToDelete = await User.findById(req.params.id);
+        if (!userToDelete) return res.status(404).json({ error: "Utilisateur introuvable" });
+
+        if (userToDelete.role === 'admin') {
+            return res.status(403).json({ error: "Impossible de supprimer un administrateur." });
+        }
+
         await User.findByIdAndDelete(req.params.id);
         res.json({ success: true, message: "Client supprimé" });
     } catch (err) { res.status(400).json({ error: "Erreur suppression" }); }
@@ -148,25 +170,18 @@ app.put('/api/admin/users/:id', auth, async (req, res) => {
 // 9. USER : Modifier son profil (Sécurisé)
 app.put('/api/user/me', auth, async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { password } = req.body; // On ne récupère PLUS l'email ici
         const updateData = {};
 
-        // Validation Email stricte
-        if (email !== undefined) {
-            if (!email || email.trim() === "" || !validateEmail(email)) {
-                return res.status(400).json({ error: "Email invalide ou vide interdit." });
-            }
-            updateData.email = email;
-        }
-
+        // On ne traite que le mot de passe
         if (password && password.trim() !== "") {
             updateData.password = await bcrypt.hash(password, 10);
         }
 
         await User.findByIdAndUpdate(req.user.id, updateData);
-        res.json({ success: true, message: "Profil mis à jour" });
+        res.json({ success: true, message: "Mot de passe mis à jour" });
     } catch (err) {
-        res.status(400).json({ error: "Cet email est déjà utilisé." });
+        res.status(400).json({ error: "Erreur lors de la mise à jour." });
     }
 });
 

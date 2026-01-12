@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     balance: { type: Number, default: 24 },
     qrToken: { type: String, default: null },
+    qrTokenDate: { type: Date, default: null },
     history: [{
         date: { type: Date, default: Date.now },
         action: String

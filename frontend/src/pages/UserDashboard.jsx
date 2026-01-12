@@ -50,22 +50,18 @@ export default function UserDashboard() {
       const token = localStorage.getItem('token');
       setErrorMsg(''); setSuccessMsg('');
 
-      if (!settingsForm.email || !settingsForm.email.includes('@')) {
-          setErrorMsg("Veuillez saisir une adresse email valide.");
-          return;
+      // On n'envoie que le password désormais
+      if (!settingsForm.password) {
+        setErrorMsg("Veuillez entrer un mot de passe.");
+        return;
       }
 
       try {
-          await axios.put(import.meta.env.VITE_API_URL + '/api/user/me', settingsForm, {
+          await axios.put(import.meta.env.VITE_API_URL + '/api/user/me', { password: settingsForm.password }, {
               headers: { Authorization: `Bearer ${token}` }
           });
-          setSuccessMsg("Profil mis à jour avec succès !");
+          setSuccessMsg("Mot de passe mis à jour avec succès !");
           setSettingsForm({ ...settingsForm, password: '' });
-
-          // Petit refresh des données globales
-          const res = await axios.get(import.meta.env.VITE_API_URL + '/api/user/me', { headers: { Authorization: `Bearer ${token}` } });
-          setData(prev => ({...prev, email: res.data.email}));
-
           setTimeout(() => { setSuccessMsg(''); setShowSettings(false); }, 2000);
       } catch (err) { setErrorMsg(err.response?.data?.error || "Erreur"); }
   };
@@ -106,7 +102,17 @@ export default function UserDashboard() {
                 <form onSubmit={handleSettingsSave} noValidate className="space-y-4">
                     {successMsg && <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-center gap-2"><CheckCircle size={18} /><span>{successMsg}</span></div>}
                     {errorMsg && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-center gap-2 animate-shake"><AlertCircle size={18} /><span>{errorMsg}</span></div>}
-                    <div><label className="text-xs text-neutral-400 uppercase font-bold">Email</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="email" value={settingsForm.email} onChange={e => { setSettingsForm({...settingsForm, email: e.target.value}); setErrorMsg(''); }} /></div>
+                    <div>
+                      <label className="text-xs text-neutral-400 uppercase font-bold">Email</label>
+                      <input 
+                          className="w-full p-3 rounded-lg bg-neutral-200 border mt-1 outline-none text-neutral-500 cursor-not-allowed" 
+                          type="email" 
+                          value={settingsForm.email} 
+                          disabled={true} // <--- DÉSACTIVÉ
+                          readOnly 
+                      />
+                      <p className="text-[10px] text-neutral-400 mt-1">L'email ne peut pas être modifié.</p>
+                    </div>
                     <div><label className="text-xs text-neutral-400 uppercase font-bold">Nouveau mot de passe</label><input className="w-full p-3 rounded-lg bg-neutral-50 border mt-1 outline-none" type="password" placeholder="••••••" value={settingsForm.password} onChange={e => setSettingsForm({...settingsForm, password: e.target.value})} /></div>
                     <div className="flex gap-3 pt-2"><button type="button" onClick={() => { setShowSettings(false); setSuccessMsg(''); setErrorMsg(''); }} className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-500 font-medium">Annuler</button><button type="submit" className="flex-1 py-3 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2"><Save size={18} /> Valider</button></div>
                 </form>
