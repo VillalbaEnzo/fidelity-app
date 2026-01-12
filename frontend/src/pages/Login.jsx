@@ -1,14 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Scissors, AlertCircle, ArrowRight } from 'lucide-react';
+import { Scissors, AlertCircle, ArrowRight, Server } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isServerWakingUp, setIsServerWakingUp] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const wakeUpServer = async () => {
+      try {
+        // On tente de joindre le serveur
+        await axios.get(import.meta.env.VITE_API_URL + '/api/ping');
+        setIsServerWakingUp(false); // Le serveur est prêt
+      } catch (err) {
+        // Même en cas d'erreur (sauf network error), le serveur a répondu
+        setIsServerWakingUp(false); 
+      }
+    };
+    wakeUpServer();
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -107,7 +122,12 @@ export default function Login() {
       <div className="mt-8 text-center">
          <p className="text-xs text-neutral-400">© 2026 Pacheco • Coiffeur & barbier</p>
       </div>
-
+      <style>{`
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 }

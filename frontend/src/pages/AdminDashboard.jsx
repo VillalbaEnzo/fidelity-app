@@ -205,7 +205,11 @@ export default function AdminDashboard() {
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={() => openModal(u)} className="p-2 bg-white border border-neutral-100 rounded-lg text-neutral-400 hover:text-blue-600"><Pencil size={16} /></button>
-                                <button onClick={() => handleDelete(u._id)} className="p-2 bg-white border border-neutral-100 rounded-lg text-neutral-400 hover:text-red-600"><Trash2 size={16} /></button>
+                                {u.role !== 'admin' && (
+                                <button onClick={() => handleDelete(u._id)} className="p-2 bg-white border border-neutral-100 rounded-lg text-neutral-400 hover:text-red-600">
+                                    <Trash2 size={16} />
+                                </button>
+                                )}
                             </div>
                         </div>
                     ))}

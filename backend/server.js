@@ -10,6 +10,7 @@ const User = require('./models/User');
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.get('/api/ping', (req, res) => res.send("pong"));
 
 const auth = (req, res, next) => {
     const token = req.headers.authorization?.split(" ")[1];
