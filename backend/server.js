@@ -58,16 +58,25 @@ app.get('/api/user/me', auth, async (req, res) => {
         if (!user) return res.status(404).send("User not found");
 
         const now = new Date();
-        const isExpired = !user.qrToken || !user.qrTokenDate || (now - new Date(user.qrTokenDate) > 86400000);
+        const isExpired =
+            !user.qrToken ||
+            !user.qrTokenDate ||
+            (now - new Date(user.qrTokenDate) > 86400000) ||
+            user.qrStatus === 'used';
 
         if (isExpired) {
             const tokenQR = uuidv4();
-            user = await User.findByIdAndUpdate(req.user.id, { 
-                qrToken: tokenQR, 
-                qrTokenDate: now 
+            user = await User.findByIdAndUpdate(req.user.id, {
+                qrToken: tokenQR,
+                qrTokenDate: now,
+                qrStatus: 'valid'
             }, { new: true });
         }
-        res.json({ balance: user.balance, qrToken: user.qrToken, email: user.email });
+        res.json({ balance: user.balance,
+            qrToken: user.qrToken,
+            email: user.email,
+            isFirstLogin: user.isFirstLogin
+        });
     } catch (err) {
         res.status(500).json({ error: "Erreur serveur" });
     }
@@ -78,30 +87,35 @@ app.post('/api/admin/scan', auth, async (req, res) => {
 
     const { qrData } = req.body;
     const user = await User.findOne({ qrToken: qrData });
-
     if (!user) return res.status(404).json({ error: "QR Code invalide ou expiré" });
+    if (user.qrStatus === 'used') {
+        return res.status(400).json({ error: "Ce QR Code a déjà été utilisé." });
+    }
+    const now = new Date();
+    if (now - new Date(user.qrTokenDate) > 86400000) {
+        return res.status(400).json({ error: "Ce QR Code est expiré (24h)." });
+    }
+
     if (user.balance <= 0) return res.status(400).json({ error: "Plus de coupes !" });
 
     user.balance -= 1;
-    user.qrToken = null;
+
+    user.qrStatus = 'used';
+
     user.history.push({ action: "Coupe déduite via Scan" });
     await user.save();
 
     res.json({ success: true, newBalance: user.balance, email: user.email });
 });
 
-// 5. Liste des utilisateurs (Tri : Admin d'abord, puis les plus récents)
 app.get('/api/admin/users', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
-        // role: 1 => Alphabétique (admin arrive avant user)
-        // _id: -1 => Les derniers inscrits en premier
         const users = await User.find().select('-password').sort({ role: 1, _id: -1 });
         res.json(users);
     } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-// 6. Supprimer un client
 app.delete('/api/admin/users/:id', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
@@ -120,7 +134,6 @@ app.delete('/api/admin/users/:id', auth, async (req, res) => {
 app.post('/api/admin/users', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
     try {
-        // AJOUTEZ 'balance' dans la récupération
         const { email, password, role, balance } = req.body;
         if (!email || !email.includes('@')) return res.status(400).json({ error: "Email invalide" });
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -129,7 +142,6 @@ app.post('/api/admin/users', auth, async (req, res) => {
             email,
             password: hashedPassword,
             role: role || 'user',
-            // UTILISEZ le solde envoyé ou 24 par défaut
             balance: balance !== undefined ? balance : 24
         });
 
@@ -137,7 +149,6 @@ app.post('/api/admin/users', auth, async (req, res) => {
     } catch (err) { res.status(400).json({ error: "Email déjà existant ou invalide" }); }
 });
 
-// 8. ADMIN : Modifier un utilisateur (Avec gestion du Rôle)
 app.put('/api/admin/users/:id', auth, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
 
@@ -145,7 +156,6 @@ app.put('/api/admin/users/:id', auth, async (req, res) => {
         const { email, balance, password, role } = req.body;
         const updateData = { balance };
 
-        // Mise à jour du rôle si fourni
         if (role) {
             updateData.role = role;
         }
@@ -168,15 +178,14 @@ app.put('/api/admin/users/:id', auth, async (req, res) => {
     }
 });
 
-// 9. USER : Modifier son profil (Sécurisé)
 app.put('/api/user/me', auth, async (req, res) => {
     try {
-        const { password } = req.body; // On ne récupère PLUS l'email ici
+        const { password } = req.body;
         const updateData = {};
 
-        // On ne traite que le mot de passe
         if (password && password.trim() !== "") {
             updateData.password = await bcrypt.hash(password, 10);
+            updateData.isFirstLogin = false;
         }
 
         await User.findByIdAndUpdate(req.user.id, updateData);
