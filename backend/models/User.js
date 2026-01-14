@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema({
     qrToken: { type: String, default: null },
     qrTokenDate: { type: Date, default: null },
     qrStatus: { type: String, enum: ['valid', 'used'], default: 'valid' },
-    isFirstLogin: { type: Boolean, default: true },
+    passwordChanged: { type: Boolean, default: true },
     history: [{
         date: { type: Date, default: Date.now },
         action: String

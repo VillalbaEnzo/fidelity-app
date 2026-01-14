@@ -49,7 +49,10 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/user/balance', auth, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).send("User not found");
-    res.json({ balance: user.balance });
+    res.json({
+        balance: user.balance,
+        passwordChanged: user.passwordChanged
+     });
 });
 
 app.get('/api/user/me', auth, async (req, res) => {
@@ -75,7 +78,7 @@ app.get('/api/user/me', auth, async (req, res) => {
         res.json({ balance: user.balance,
             qrToken: user.qrToken,
             email: user.email,
-            isFirstLogin: user.isFirstLogin
+            passwordChanged: user.passwordChanged
         });
     } catch (err) {
         res.status(500).json({ error: "Erreur serveur" });
@@ -185,7 +188,7 @@ app.put('/api/user/me', auth, async (req, res) => {
 
         if (password && password.trim() !== "") {
             updateData.password = await bcrypt.hash(password, 10);
-            updateData.isFirstLogin = false;
+            updateData.passwordChanged = false;
         }
 
         await User.findByIdAndUpdate(req.user.id, updateData);

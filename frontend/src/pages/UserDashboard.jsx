@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut, RefreshCw, Settings, Save, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function UserDashboard() {
-  const [data, setData] = useState({ balance: 0, qrToken: '', email: '', isFirstLogin: false });
+  const [data, setData] = useState({ balance: 0, qrToken: '', email: '', passwordChanged: false });
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ email: '', password: '' });
   const [successMsg, setSuccessMsg] = useState('');
@@ -29,8 +29,12 @@ export default function UserDashboard() {
         axios.get(import.meta.env.VITE_API_URL + '/api/user/balance', { headers: { Authorization: `Bearer ${token}` } })
         .then(res => {
             setData(prev => {
-                if (prev.balance !== res.data.balance) {
-                    return { ...prev, balance: res.data.balance };
+                if (prev.balance !== res.data.balance || prev.passwordChanged !== res.data.passwordChanged) {
+                    return {
+                        ...prev,
+                        balance: res.data.balance,
+                        passwordChanged: res.data.passwordChanged
+                    };
                 }
                 return prev;
             });
@@ -71,7 +75,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
-    {data.isFirstLogin && (
+    {data.passwordChanged && (
       <div className="w-full max-w-sm bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 shadow-sm flex flex-col gap-3 animate-fade-in">
         <div className="flex items-center gap-3 text-amber-800">
            <AlertCircle size={24} />
